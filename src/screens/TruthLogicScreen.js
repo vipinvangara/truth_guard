@@ -118,7 +118,7 @@ export default function TruthLogicScreen({ item, onPurgeItem }) {
         border: verifiabilityScore >= 65 ? Colors.successBorder : (verifiabilityScore >= 40 ? Colors.warningBorder : Colors.dangerBorder),
         description: isWW2 
           ? "The claim is false: the United States and its allies were part of the victorious Allied powers in World War II, and Germany and Japan surrendered to the Allies in 1945."
-          : (contradictions[0]?.contradiction || "Claim content has been analyzed against active reference indexes."),
+          : (contradictions[0]?.description || contradictions[0]?.type || "Claim content has been analyzed against active reference indexes."),
         evidenceText: isWW2 ? "4 support • 2 refute • 1 unclear" : `${sources.filter(s => s.verificationStatus === 'support').length} support • ${sources.filter(s => s.verificationStatus === 'refute').length} refute`,
         pills: isWW2 ? ["history.state.gov", "nationalww2museum.org", "hoover.org", "bbc.co.uk"] : sources.map(s => s.source || s.name)
       },

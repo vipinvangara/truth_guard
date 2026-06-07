@@ -279,7 +279,9 @@ export const AnalysisCoordinator = {
     const observationResult = ObservationExtractor.extractObservations(sceneGraph, {
       ...sceneUnderstanding,
       extractedText: [
-        ...(mediaRef.text ? [mediaRef.text] : []),
+        // For Text type: ocrResult.claims already contains the raw text from extractEntitiesAndIntent.
+        // Do NOT also add mediaRef.text — that would double the claim string (e.g. "ice cream is sweet ice cream is sweet").
+        ...(!isText && mediaRef.text ? [mediaRef.text] : []),
         ...ocrResult.claims.map(c => c.text)
       ],
       regions: regionResult.tiles
@@ -288,7 +290,7 @@ export const AnalysisCoordinator = {
     // 8. ENTITY GROUNDING
     const groundingResult = EntityGroundingEngine.ground(sceneGraph, {
       extractedText: [
-        ...(mediaRef.text ? [mediaRef.text] : []),
+        ...(!isText && mediaRef.text ? [mediaRef.text] : []),
         ...ocrResult.claims.map(c => c.text)
       ]
     });

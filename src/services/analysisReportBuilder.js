@@ -135,7 +135,10 @@ export const AnalysisReportBuilder = {
       verifiabilityDesc = `No matching historical or factual context was found in the local offline database to verify ${claimSummary || 'this claim'}. Enable consensus mode for cloud-backed verification.`;
     } else if (contradictions.length > 0) {
       const firstCon = contradictions[0];
-      verifiabilityDesc = `Factual contradiction detected for ${claimSummary || 'this claim'}: ${firstCon.contradiction || firstCon.observation || 'A factual discrepancy was identified.'}` +
+      // Raw contradiction objects from contextualResult.contradictions have { type, description, severity }.
+      // Use .description (the NLI finding detail) and .type (the category label) as fallbacks.
+      const conDetail = firstCon.description || firstCon.type || 'A factual discrepancy was identified.';
+      verifiabilityDesc = `Factual contradiction detected for ${claimSummary || 'this claim'}: ${conDetail}` +
         (refuteCount > 0 ? ` ${refuteCount} refuting source${refuteCount > 1 ? 's' : ''} found.` : '');
     } else if (supportCount > 0) {
       verifiabilityDesc = `${claimSummary ? `The claim ${claimSummary} was` : 'The content was'} cross-referenced against ${supportCount} source${supportCount > 1 ? 's' : ''}. No factual contradictions were detected. The claim is consistent with available evidence.`;

@@ -90,50 +90,145 @@ export const EvidenceRetrievalEngine = {
       const entities = claims.flatMap(c => c.entities || []);
       const query = entities.length > 0 ? entities.join(' ') : claimTexts.join(' ');
       if (query.trim()) {
-        try {
-          const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
-          const wikiResponse = await fetch(wikiUrl);
-          const wikiData = await wikiResponse.json();
-          if (wikiData.query && wikiData.query.search && wikiData.query.search.length > 0) {
-            const items = wikiData.query.search.slice(0, 5);
-            const mappedItems = items.map((item, idx) => {
-              const snippetText = item.snippet.replace(/<\/?[^>]+(>|$)/g, "");
-              const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title)}`;
-              return {
-                domain: "wikipedia.org",
-                text: snippetText,
-                trustScore: 0.90,
-                id: `ref-wiki-search-${idx}`,
-                name: item.title,
-                url,
-                source: "wikipedia.org",
-                summary: snippetText,
-                reliability: 0.90,
-                agreement: 0.95,
-                recency: 0.90,
-                coverage: 0.85,
+        // Run Wikipedia, DuckDuckGo Instant Answer, and Wikidata in parallel — all free, no API key required.
+        const [wikiResult, ddgResult, wikidataResult] = await Promise.allSettled([
+          // 1. Wikipedia Article Search
+          (async () => {
+            const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
+            const wikiResponse = await fetch(wikiUrl);
+            const wikiData = await wikiResponse.json();
+            if (wikiData.query?.search?.length > 0) {
+              return wikiData.query.search.slice(0, 3).map((item, idx) => {
+                const snippetText = item.snippet.replace(/<\/?[^>]+(>|$)/g, "");
+                return {
+                  domain: "wikipedia.org",
+                  text: snippetText,
+                  trustScore: 0.90,
+                  id: `ref-wiki-${idx}`,
+                  name: item.title,
+                  url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title)}`,
+                  source: "wikipedia.org",
+                  summary: snippetText,
+                  reliability: 0.90,
+                  agreement: 0.95,
+                  recency: 0.90,
+                  coverage: 0.85,
+                  verificationStatus: "support",
+                  retrievalMethod: "SOVEREIGN_ONLINE",
+                  timestamp: Date.now()
+                };
+              });
+            }
+            return [];
+          })(),
+
+          // 2. DuckDuckGo Instant Answer API — returns definitions, abstracts from curated sources
+          (async () => {
+            const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1&no_html=1&skip_disambig=1`;
+            const ddgResponse = await fetch(ddgUrl);
+            const ddgData = await ddgResponse.json();
+            const results = [];
+
+            if (ddgData.AbstractText && ddgData.AbstractText.length > 30) {
+              results.push({
+                domain: ddgData.AbstractSource?.toLowerCase().replace(/\s+/g, '') + '.org' || 'duckduckgo.com',
+                text: ddgData.AbstractText,
+                trustScore: 0.88,
+                id: `ref-ddg-abstract`,
+                name: ddgData.Heading || query,
+                url: ddgData.AbstractURL || `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
+                source: ddgData.AbstractSource || 'DuckDuckGo',
+                summary: ddgData.AbstractText,
+                reliability: 0.88,
+                agreement: 0.92,
+                recency: 0.85,
+                coverage: 0.80,
                 verificationStatus: "support",
-                retrievalMethod: "SOVEREIGN_ONLINE",
+                retrievalMethod: "SOVEREIGN_ONLINE_DDG",
                 timestamp: Date.now()
-              };
+              });
+            }
+
+            // Also include Related Topics with descriptive text
+            (ddgData.RelatedTopics || []).slice(0, 2).forEach((topic, idx) => {
+              const topicText = topic.Text || topic.Result;
+              if (topicText && topicText.length > 20) {
+                results.push({
+                  domain: 'duckduckgo.com',
+                  text: topicText,
+                  trustScore: 0.75,
+                  id: `ref-ddg-topic-${idx}`,
+                  name: topic.Name || `Related: ${query}`,
+                  url: topic.FirstURL || `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
+                  source: 'duckduckgo.com',
+                  summary: topicText,
+                  reliability: 0.75,
+                  agreement: 0.85,
+                  recency: 0.80,
+                  coverage: 0.70,
+                  verificationStatus: "support",
+                  retrievalMethod: "SOVEREIGN_ONLINE_DDG",
+                  timestamp: Date.now()
+                });
+              }
             });
 
-            await Promise.all(mappedItems.map(async (item) => {
-              const rel = await classifySnippet(item.text, claims, executionMode, apiKey);
-              item.verificationStatus = rel;
-              if (rel === 'refute') {
-                item.agreement = 0.30;
-                contradictingEvidence.push(item);
-              } else {
-                supportingEvidence.push(item);
-              }
-            }));
+            return results;
+          })(),
 
-            supportCount = supportingEvidence.length;
-            refuteCount = contradictingEvidence.length;
-          }
-        } catch (wikiErr) {
-          console.warn("EvidenceRetrievalEngine: Wikipedia search (SOVEREIGN_ONLINE) failed:", wikiErr);
+          // 3. Wikidata Entity Search — structured knowledge graph
+          (async () => {
+            const wikidataUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=en&format=json&limit=2&origin=*`;
+            const wikidataResponse = await fetch(wikidataUrl);
+            const wikidataData = await wikidataResponse.json();
+            if (wikidataData.search?.length > 0) {
+              return wikidataData.search.slice(0, 2).map((entity, idx) => {
+                const description = entity.description || entity.label || '';
+                if (!description || description.length < 10) return null;
+                return {
+                  domain: "wikidata.org",
+                  text: `${entity.label}: ${description}`,
+                  trustScore: 0.88,
+                  id: `ref-wikidata-${idx}`,
+                  name: entity.label,
+                  url: `https://www.wikidata.org/wiki/${entity.id}`,
+                  source: "wikidata.org",
+                  summary: `${entity.label}: ${description}`,
+                  reliability: 0.88,
+                  agreement: 0.90,
+                  recency: 0.88,
+                  coverage: 0.80,
+                  verificationStatus: "support",
+                  retrievalMethod: "SOVEREIGN_ONLINE_WIKIDATA",
+                  timestamp: Date.now()
+                };
+              }).filter(Boolean);
+            }
+            return [];
+          })()
+        ]);
+
+        // Merge all results from all three sources
+        const allCandidates = [
+          ...(wikiResult.status === 'fulfilled' ? wikiResult.value : []),
+          ...(ddgResult.status === 'fulfilled' ? ddgResult.value : []),
+          ...(wikidataResult.status === 'fulfilled' ? wikidataResult.value : [])
+        ];
+
+        if (allCandidates.length > 0) {
+          await Promise.all(allCandidates.map(async (item) => {
+            const rel = await classifySnippet(item.text, claims, executionMode, apiKey);
+            item.verificationStatus = rel;
+            if (rel === 'refute') {
+              item.agreement = 0.30;
+              contradictingEvidence.push(item);
+            } else {
+              supportingEvidence.push(item);
+            }
+          }));
+
+          supportCount = supportingEvidence.length;
+          refuteCount = contradictingEvidence.length;
         }
       }
     } else if (isWW2) {
@@ -341,50 +436,92 @@ export const EvidenceRetrievalEngine = {
             console.warn("EvidenceRetrievalEngine: Fact Check API query failed:", factErr);
           }
         } else {
-          try {
-            const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
-            const wikiResponse = await fetch(wikiUrl);
-            const wikiData = await wikiResponse.json();
-            if (wikiData.query && wikiData.query.search && wikiData.query.search.length > 0) {
-              const items = wikiData.query.search.slice(0, 5);
-              const mappedItems = items.map((item, idx) => {
-                const snippetText = item.snippet.replace(/<\/?[^>]+(>|$)/g, "");
-                const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title)}`;
-                return {
+          // No Fact Check API key — fall back to the same multi-source parallel retrieval used in sovereign mode
+          const [wikiRes, ddgRes, wdRes] = await Promise.allSettled([
+            (async () => {
+              const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
+              const wikiResponse = await fetch(wikiUrl);
+              const wikiData = await wikiResponse.json();
+              if (wikiData.query?.search?.length > 0) {
+                return wikiData.query.search.slice(0, 3).map((item, idx) => ({
                   domain: "wikipedia.org",
-                  text: snippetText,
+                  text: item.snippet.replace(/<\/?[^>]+(>|$)/g, ""),
                   trustScore: 0.90,
-                  id: `ref-wiki-search-${idx}`,
+                  id: `ref-wiki-${idx}`,
                   name: item.title,
-                  url,
+                  url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title)}`,
                   source: "wikipedia.org",
-                  summary: snippetText,
-                  reliability: 0.90,
-                  agreement: 0.95,
-                  recency: 0.90,
-                  coverage: 0.85,
-                  verificationStatus: "support",
-                  retrievalMethod: mode,
-                  timestamp: Date.now()
-                };
-              });
+                  summary: item.snippet.replace(/<\/?[^>]+(>|$)/g, ""),
+                  reliability: 0.90, agreement: 0.95, recency: 0.90, coverage: 0.85,
+                  verificationStatus: "support", retrievalMethod: mode, timestamp: Date.now()
+                }));
+              }
+              return [];
+            })(),
+            (async () => {
+              const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1&no_html=1&skip_disambig=1`;
+              const ddgResponse = await fetch(ddgUrl);
+              const ddgData = await ddgResponse.json();
+              const results = [];
+              if (ddgData.AbstractText?.length > 30) {
+                results.push({
+                  domain: ddgData.AbstractSource?.toLowerCase().replace(/\s+/g, '') + '.org' || 'duckduckgo.com',
+                  text: ddgData.AbstractText,
+                  trustScore: 0.88, id: 'ref-ddg-abstract',
+                  name: ddgData.Heading || query,
+                  url: ddgData.AbstractURL || `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
+                  source: ddgData.AbstractSource || 'DuckDuckGo',
+                  summary: ddgData.AbstractText,
+                  reliability: 0.88, agreement: 0.92, recency: 0.85, coverage: 0.80,
+                  verificationStatus: "support", retrievalMethod: "DDG_FALLBACK", timestamp: Date.now()
+                });
+              }
+              return results;
+            })(),
+            (async () => {
+              const wdUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=en&format=json&limit=2&origin=*`;
+              const wdResponse = await fetch(wdUrl);
+              const wdData = await wdResponse.json();
+              if (wdData.search?.length > 0) {
+                return wdData.search.slice(0, 2).map((entity, idx) => {
+                  const desc = entity.description || entity.label || '';
+                  if (!desc || desc.length < 10) return null;
+                  return {
+                    domain: "wikidata.org",
+                    text: `${entity.label}: ${desc}`,
+                    trustScore: 0.88, id: `ref-wikidata-${idx}`,
+                    name: entity.label,
+                    url: `https://www.wikidata.org/wiki/${entity.id}`,
+                    source: "wikidata.org",
+                    summary: `${entity.label}: ${desc}`,
+                    reliability: 0.88, agreement: 0.90, recency: 0.88, coverage: 0.80,
+                    verificationStatus: "support", retrievalMethod: "WIKIDATA_FALLBACK", timestamp: Date.now()
+                  };
+                }).filter(Boolean);
+              }
+              return [];
+            })()
+          ]);
 
-              await Promise.all(mappedItems.map(async (item) => {
-                const rel = await classifySnippet(item.text, claims, executionMode, apiKey);
-                item.verificationStatus = rel;
-                if (rel === 'refute') {
-                  item.agreement = 0.30;
-                  contradictingEvidence.push(item);
-                } else {
-                  supportingEvidence.push(item);
-                }
-              }));
+          const allCandidates = [
+            ...(wikiRes.status === 'fulfilled' ? wikiRes.value : []),
+            ...(ddgRes.status === 'fulfilled' ? ddgRes.value : []),
+            ...(wdRes.status === 'fulfilled' ? wdRes.value : [])
+          ];
 
-              supportCount = supportingEvidence.length;
-              refuteCount = contradictingEvidence.length;
-            }
-          } catch (wikiErr) {
-            console.warn("EvidenceRetrievalEngine: Wikipedia search fallback failed:", wikiErr);
+          if (allCandidates.length > 0) {
+            await Promise.all(allCandidates.map(async (item) => {
+              const rel = await classifySnippet(item.text, claims, executionMode, apiKey);
+              item.verificationStatus = rel;
+              if (rel === 'refute') {
+                item.agreement = 0.30;
+                contradictingEvidence.push(item);
+              } else {
+                supportingEvidence.push(item);
+              }
+            }));
+            supportCount = supportingEvidence.length;
+            refuteCount = contradictingEvidence.length;
           }
         }
       }
