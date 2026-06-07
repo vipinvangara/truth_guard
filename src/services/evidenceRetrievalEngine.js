@@ -4,15 +4,27 @@
 
 import { EpistemicValidationEngine } from '../reasoners/epistemicValidationEngine.js';
 
+function cleanHTML(text) {
+  if (!text) return '';
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/<\/?[^>]+(>|$)/g, "")
+    .trim();
+}
+
 async function classifySnippet(snippetText, claims, executionMode, apiKey) {
-  if (!snippetText || !claims || claims.length === 0) return 'support';
+  if (!snippetText || !claims || claims.length === 0) return { verificationStatus: 'support' };
   const claimTexts = claims.map(c => typeof c === 'string' ? c : (c.text || ''));
 
   // 1. Local rule-based check first (very fast, reliable)
   for (const claimText of claimTexts) {
     const ruleResult = EpistemicValidationEngine.validateClaim(claimText, [{ text: snippetText, trustScore: 0.90 }]);
     if (ruleResult.relationship === 'Contradiction') {
-      return 'refute';
+      return { verificationStatus: 'refute', confidence: ruleResult.divergenceCoefficient || 0.90, method: 'rule' };
     }
   }
 
@@ -35,7 +47,7 @@ async function classifySnippet(snippetText, claims, executionMode, apiKey) {
         // Require EXPLICIT contradiction label AND high confidence (>0.70) to avoid
         // false refutations where the model is merely uncertain (neutral).
         if (nliResult.relationship === 'contradiction' && (nliResult.confidence || 0) > 0.70) {
-          return 'refute';
+          return { verificationStatus: 'refute', confidence: nliResult.confidence, method: 'nli' };
         }
       }
     } catch (err) {
@@ -43,7 +55,7 @@ async function classifySnippet(snippetText, claims, executionMode, apiKey) {
     }
   }
 
-  return 'support';
+  return { verificationStatus: 'support' };
 }
 
 const TRUST_MAP = {
@@ -100,22 +112,28 @@ export const EvidenceRetrievalEngine = {
             body: JSON.stringify({ query, limit: 8 })
           });
           const proxyData = await proxyResponse.json();
-          const proxyItems = (proxyData.results || []).map((item, idx) => ({
-            ...item,
-            agreement: 0.95,
-            recency: 0.88,
-            coverage: 0.82,
-            verificationStatus: 'support',
-            retrievalMethod: 'SOVEREIGN_ONLINE_PROXY',
-            timestamp: Date.now()
-          }));
+          const proxyItems = (proxyData.results || []).map((item, idx) => {
+            const cleanText = cleanHTML(item.text || '');
+            return {
+              ...item,
+              text: cleanText,
+              summary: cleanText,
+              agreement: 0.95,
+              recency: 0.88,
+              coverage: 0.82,
+              verificationStatus: 'support',
+              retrievalMethod: 'SOVEREIGN_ONLINE_PROXY',
+              timestamp: Date.now()
+            };
+          });
 
           if (proxyItems.length > 0) {
             await Promise.all(proxyItems.map(async (item) => {
-              const rel = await classifySnippet(item.text, claims, executionMode, apiKey);
-              item.verificationStatus = rel;
-              if (rel === 'refute') {
-                item.agreement = 0.30;
+              const res = await classifySnippet(item.text, claims, executionMode, apiKey);
+              item.verificationStatus = res.verificationStatus;
+              if (res.confidence !== undefined) item.nliConfidence = res.confidence;
+              if (res.verificationStatus === 'refute') {
+                item.agreement = parseFloat((1.0 - (res.confidence || 0.70)).toFixed(2));
                 contradictingEvidence.push(item);
               } else {
                 supportingEvidence.push(item);
@@ -133,7 +151,7 @@ export const EvidenceRetrievalEngine = {
             const wikiData = await wikiResponse.json();
             if (wikiData.query?.search?.length > 0) {
               const wikiItems = wikiData.query.search.slice(0, 5).map((item, idx) => {
-                const snippetText = item.snippet.replace(/<\/?[^>]+(>|$)/g, "");
+                const snippetText = cleanHTML(item.snippet);
                 return {
                   domain: "wikipedia.org", text: snippetText, trustScore: 0.90,
                   id: `ref-wiki-${idx}`, name: item.title,
@@ -144,10 +162,15 @@ export const EvidenceRetrievalEngine = {
                 };
               });
               await Promise.all(wikiItems.map(async (item) => {
-                const rel = await classifySnippet(item.text, claims, executionMode, apiKey);
-                item.verificationStatus = rel;
-                if (rel === 'refute') { item.agreement = 0.30; contradictingEvidence.push(item); }
-                else { supportingEvidence.push(item); }
+                const res = await classifySnippet(item.text, claims, executionMode, apiKey);
+                item.verificationStatus = res.verificationStatus;
+                if (res.confidence !== undefined) item.nliConfidence = res.confidence;
+                if (res.verificationStatus === 'refute') {
+                  item.agreement = parseFloat((1.0 - (res.confidence || 0.70)).toFixed(2));
+                  contradictingEvidence.push(item);
+                } else {
+                  supportingEvidence.push(item);
+                }
               }));
               supportCount = supportingEvidence.length;
               refuteCount = contradictingEvidence.length;
@@ -301,13 +324,13 @@ export const EvidenceRetrievalEngine = {
 
                 return {
                   domain,
-                  text: item.snippet,
+                  text: cleanHTML(item.snippet),
                   trustScore: trustWeight,
                   id: `ref-google-search-${idx}`,
                   name: item.title,
                   url: item.link,
                   source: domain,
-                  summary: item.snippet,
+                  summary: cleanHTML(item.snippet),
                   reliability: trustWeight,
                   agreement: 0.95,
                   recency: 0.90,
@@ -319,10 +342,11 @@ export const EvidenceRetrievalEngine = {
               });
 
               await Promise.all(mappedItems.map(async (item) => {
-                const rel = await classifySnippet(item.text, claims, executionMode, apiKey);
-                item.verificationStatus = rel;
-                if (rel === 'refute') {
-                  item.agreement = 0.30;
+                const res = await classifySnippet(item.text, claims, executionMode, apiKey);
+                item.verificationStatus = res.verificationStatus;
+                if (res.confidence !== undefined) item.nliConfidence = res.confidence;
+                if (res.verificationStatus === 'refute') {
+                  item.agreement = parseFloat((1.0 - (res.confidence || 0.70)).toFixed(2));
                   contradictingEvidence.push(item);
                 } else {
                   supportingEvidence.push(item);
@@ -371,17 +395,27 @@ export const EvidenceRetrievalEngine = {
               body: JSON.stringify({ query, limit: 8 })
             });
             const proxyData = await proxyResponse.json();
-            const proxyItems = (proxyData.results || []).map(item => ({
-              ...item,
-              agreement: 0.95, recency: 0.88, coverage: 0.82,
-              verificationStatus: 'support', retrievalMethod: 'CONSENSUS_PROXY', timestamp: Date.now()
-            }));
+            const proxyItems = (proxyData.results || []).map(item => {
+              const cleanText = cleanHTML(item.text || '');
+              return {
+                ...item,
+                text: cleanText,
+                summary: cleanText,
+                agreement: 0.95, recency: 0.88, coverage: 0.82,
+                verificationStatus: 'support', retrievalMethod: 'CONSENSUS_PROXY', timestamp: Date.now()
+              };
+            });
             if (proxyItems.length > 0) {
               await Promise.all(proxyItems.map(async (item) => {
-                const rel = await classifySnippet(item.text, claims, executionMode, apiKey);
-                item.verificationStatus = rel;
-                if (rel === 'refute') { item.agreement = 0.30; contradictingEvidence.push(item); }
-                else { supportingEvidence.push(item); }
+                const res = await classifySnippet(item.text, claims, executionMode, apiKey);
+                item.verificationStatus = res.verificationStatus;
+                if (res.confidence !== undefined) item.nliConfidence = res.confidence;
+                if (res.verificationStatus === 'refute') {
+                  item.agreement = parseFloat((1.0 - (res.confidence || 0.70)).toFixed(2));
+                  contradictingEvidence.push(item);
+                } else {
+                  supportingEvidence.push(item);
+                }
               }));
               supportCount = supportingEvidence.length;
               refuteCount = contradictingEvidence.length;
@@ -528,7 +562,15 @@ export const EvidenceRetrievalEngine = {
       : 0.90;
 
     // Agreement coefficient drops if contradicting evidence is found
-    const agreementCoefficient = contradictingEvidence.length > 0 ? 0.20 : 0.95;
+    let agreementCoefficient = 0.95;
+    if (contradictingEvidence.length > 0) {
+      let totalContradictionConfidence = 0;
+      contradictingEvidence.forEach(item => {
+        const conf = item.nliConfidence !== undefined ? item.nliConfidence : 0.90;
+        totalContradictionConfidence += conf;
+      });
+      agreementCoefficient = parseFloat((0.95 * Math.pow(0.20, totalContradictionConfidence)).toFixed(4));
+    }
 
     const retrievalMetrics = {
       sourceReliability,

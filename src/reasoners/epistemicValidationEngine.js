@@ -41,9 +41,21 @@ export const EpistemicValidationEngine = {
           // Neutral = unrelated snippet, NOT a contradiction.
           if (nliResult.relationship === 'contradiction' && (nliResult.confidence || 0) > 0.75) {
             const divCoef = nliResult.confidence || 0.70;
+            const contradictingSnippets = snippets.filter(s => s.verificationStatus === 'refute');
+            let snippetQuote = '';
+            if (contradictingSnippets.length > 0) {
+              snippetQuote = contradictingSnippets.slice(0, 2).map(s => {
+                const sourceName = s.name || s.source || s.domain || 'evidence';
+                return `According to ${sourceName}: "${s.text}"`;
+              }).join(' ');
+            }
+            const description = snippetQuote
+              ? `Factual contradiction detected: ${snippetQuote} (NLI Confidence: ${Math.round(divCoef * 100)}%).`
+              : `Factual contradiction detected via local containerized DeBERTa-v3-NLI for claim: "${claim.text}". (Confidence: ${Math.round(divCoef * 100)}%).`;
+
             findings.push({
               type: "historical_fact_contradiction",
-              description: `Factual contradiction detected via local containerized DeBERTa-v3-NLI for claim: "${claim.text}". (Confidence: ${Math.round(divCoef * 100)}%).`,
+              description,
               severity: divCoef > 0.70 ? "high" : "medium",
               divergence: divCoef
             });
@@ -115,9 +127,21 @@ Respond with a raw JSON object only (no markdown formatting, no backticks) in th
           // Same threshold: only contradiction with confidence > 0.75
           if (nliResult.relationship === 'contradiction' && (nliResult.confidence || 0) > 0.75) {
             const divCoef = nliResult.confidence || 0.70;
+            const contradictingSnippets = snippets.filter(s => s.verificationStatus === 'refute');
+            let snippetQuote = '';
+            if (contradictingSnippets.length > 0) {
+              snippetQuote = contradictingSnippets.slice(0, 2).map(s => {
+                const sourceName = s.name || s.source || s.domain || 'evidence';
+                return `According to ${sourceName}: "${s.text}"`;
+              }).join(' ');
+            }
+            const description = snippetQuote
+              ? `Factual contradiction detected: ${snippetQuote} (NLI Confidence: ${Math.round(divCoef * 100)}%).`
+              : `Factual contradiction detected via Proprietary Cloud Gemini. (Confidence: ${Math.round(divCoef * 100)}%).`;
+
             findings.push({
               type: "historical_fact_contradiction",
-              description: `Factual contradiction detected via Proprietary Cloud Gemini. (Confidence: ${Math.round(divCoef * 100)}%).`,
+              description,
               severity: divCoef > 0.70 ? "high" : "medium",
               divergence: divCoef
             });
