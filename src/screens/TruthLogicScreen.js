@@ -281,7 +281,12 @@ export default function TruthLogicScreen({ item, onPurgeItem }) {
   const activeSignals = allSignalsList.filter(s => s.isActive);
   const inactiveSignals = allSignalsList.filter(s => !s.isActive);
   const recommendationsChecklist = getRecommendationsChecklist(trustScore);
-  const descriptionParagraph = (!isText && report.description?.scene) || defaultDescription;
+  
+  // Use dynamic signal description from Claim Verifiability if available, for richer explanation
+  const claimVerifiabilitySignal = allSignalsList.find(s => s.name === 'Claim Verifiability');
+  const signalDescription = claimVerifiabilitySignal?.description;
+  const descriptionParagraph = (!isText && report.description?.scene) 
+    || (signalDescription && signalDescription !== 'Claim content has been analyzed against active reference indexes and consensus databases.' ? signalDescription : defaultDescription);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>

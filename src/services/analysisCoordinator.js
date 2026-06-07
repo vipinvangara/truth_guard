@@ -295,6 +295,17 @@ export const AnalysisCoordinator = {
 
     // 9. CLAIM GRAPH GENERATION
     const claimGraph = ClaimGraphBuilder.build(observationResult, groundingResult);
+    if (type === 'Text') {
+      claimGraph.claims = claimGraph.claims.filter(c => c.provenance && (c.provenance.source === 'ocr' || c.provenance.source === 'text'));
+      // De-duplicate claims by text content
+      const seen = new Set();
+      claimGraph.claims = claimGraph.claims.filter(c => {
+        const txt = (c.text || '').trim().toLowerCase();
+        if (!txt || seen.has(txt)) return false;
+        seen.add(txt);
+        return true;
+      });
+    }
 
     console.log("[AnalysisCoordinator] Scene Graph and Entity Grounding completed.");
     report.observations.push("High-level scene graph constructed.");

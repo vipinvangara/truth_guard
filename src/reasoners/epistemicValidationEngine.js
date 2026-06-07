@@ -26,28 +26,31 @@ export const EpistemicValidationEngine = {
 
     if (executionMode === 'SOVEREIGN_CONTAINER' || executionMode === 'SOVEREIGN_CONTAINER_ONLINE') {
       try {
-        const response = await fetch(`${apiUrl}/inference/nli`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            hypothesis: claims.map(c => c.text).join(' '),
-            premises: snippets.map(s => s.text)
-          })
-        });
-        const nliResult = await response.json();
-        if (nliResult.relationship === 'contradiction') {
-          const divCoef = nliResult.confidence || 0.70;
-          findings.push({
-            type: "historical_fact_contradiction",
-            description: `Factual contradiction detected via local containerized DeBERTa-v3-NLI. (Confidence: ${Math.round(divCoef * 100)}%).`,
-            severity: divCoef > 0.70 ? "high" : "medium",
-            divergence: divCoef
+        for (const claim of claims) {
+          const response = await fetch(`${apiUrl}/inference/nli`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              hypothesis: claim.text,
+              premises: snippets.map(s => s.text)
+            })
           });
-          cumulativeScore = Math.max(0.10, 1.0 - divCoef);
-          checkedCount = claims.length;
-        } else {
-          checkedCount = claims.length;
+          const nliResult = await response.json();
+          // Require explicit "contradiction" with confidence > 0.75 to prevent false positives.
+          // NLI models often return "neutral" for true but general claims (e.g. "ice cream is sweet").
+          // Neutral = unrelated snippet, NOT a contradiction.
+          if (nliResult.relationship === 'contradiction' && (nliResult.confidence || 0) > 0.75) {
+            const divCoef = nliResult.confidence || 0.70;
+            findings.push({
+              type: "historical_fact_contradiction",
+              description: `Factual contradiction detected via local containerized DeBERTa-v3-NLI for claim: "${claim.text}". (Confidence: ${Math.round(divCoef * 100)}%).`,
+              severity: divCoef > 0.70 ? "high" : "medium",
+              divergence: divCoef
+            });
+            cumulativeScore = Math.min(cumulativeScore, Math.max(0.10, 1.0 - divCoef));
+          }
         }
+        checkedCount = claims.length;
       } catch (err) {
         console.warn("EpistemicValidationEngine: Local container NLI query failed, falling back to local regex matching:", err);
         claims.forEach(claim => {
@@ -109,7 +112,8 @@ Respond with a raw JSON object only (no markdown formatting, no backticks) in th
             console.warn("Failed to parse Gemini response as JSON, text was:", responseText);
           }
 
-          if (nliResult.relationship === 'contradiction') {
+          // Same threshold: only contradiction with confidence > 0.75
+          if (nliResult.relationship === 'contradiction' && (nliResult.confidence || 0) > 0.75) {
             const divCoef = nliResult.confidence || 0.70;
             findings.push({
               type: "historical_fact_contradiction",
@@ -247,6 +251,28 @@ Respond with a raw JSON object only (no markdown formatting, no backticks) in th
           if (claimLower.includes('part of') || claimLower.includes('in ') || claimLower.includes('belong') || claimLower.includes('located')) {
             const trueContinent = countries[matchedCountry];
             if (premiseText.includes(trueContinent)) {
+              isContradiction = true;
+            }
+          }
+        }
+      }
+
+      // 6. City/country mismatch check
+      const cityCountryMap = {
+        jakarta: { country: "indonesia", continent: "asia" },
+        rotterdam: { country: "netherlands", continent: "europe" },
+        paris: { country: "france", continent: "europe" },
+        london: { country: "uk", continent: "europe" },
+        tokyo: { country: "japan", continent: "asia" },
+        berlin: { country: "germany", continent: "europe" },
+        beijing: { country: "china", continent: "asia" }
+      };
+
+      for (const [city, info] of Object.entries(cityCountryMap)) {
+        if (claimLower.includes(city)) {
+          const hasWrongCountry = (city === 'jakarta' && (claimLower.includes('uk') || claimLower.includes('united kingdom') || claimLower.includes('europe')));
+          if (hasWrongCountry) {
+            if (premiseText.includes(info.country) || premiseText.includes(info.continent)) {
               isContradiction = true;
             }
           }

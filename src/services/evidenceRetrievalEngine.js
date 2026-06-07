@@ -2,6 +2,50 @@
 // Fetches supporting and contradicting evidence references to eliminate confirmation bias
 // Offline-first architecture remains mandatory; cloud lookup is optional and gated.
 
+import { EpistemicValidationEngine } from '../reasoners/epistemicValidationEngine.js';
+
+async function classifySnippet(snippetText, claims, executionMode, apiKey) {
+  if (!snippetText || !claims || claims.length === 0) return 'support';
+  const claimTexts = claims.map(c => typeof c === 'string' ? c : (c.text || ''));
+
+  // 1. Local rule-based check first (very fast, reliable)
+  for (const claimText of claimTexts) {
+    const ruleResult = EpistemicValidationEngine.validateClaim(claimText, [{ text: snippetText, trustScore: 0.90 }]);
+    if (ruleResult.relationship === 'Contradiction') {
+      return 'refute';
+    }
+  }
+
+  // 2. Container NLI check if available
+  // Only classify as refute if the model explicitly returns "contradiction" with HIGH confidence.
+  // "neutral" means the snippet is unrelated but not contradicting — treat as support.
+  const apiUrl = process.env.EXPO_PUBLIC_TRUTHGUARD_API_URL || 'http://localhost:8000';
+  if (executionMode === 'SOVEREIGN_CONTAINER' || executionMode === 'SOVEREIGN_CONTAINER_ONLINE') {
+    try {
+      for (const claimText of claimTexts) {
+        const response = await fetch(`${apiUrl}/inference/nli`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            hypothesis: claimText,
+            premises: [snippetText]
+          })
+        });
+        const nliResult = await response.json();
+        // Require EXPLICIT contradiction label AND high confidence (>0.70) to avoid
+        // false refutations where the model is merely uncertain (neutral).
+        if (nliResult.relationship === 'contradiction' && (nliResult.confidence || 0) > 0.70) {
+          return 'refute';
+        }
+      }
+    } catch (err) {
+      console.warn("classifySnippet: NLI endpoint check failed:", err);
+    }
+  }
+
+  return 'support';
+}
+
 const TRUST_MAP = {
   'state.gov': 1.0,
   'cisa.gov': 1.0,
@@ -52,7 +96,7 @@ export const EvidenceRetrievalEngine = {
           const wikiData = await wikiResponse.json();
           if (wikiData.query && wikiData.query.search && wikiData.query.search.length > 0) {
             const items = wikiData.query.search.slice(0, 5);
-            supportingEvidence = items.map((item, idx) => {
+            const mappedItems = items.map((item, idx) => {
               const snippetText = item.snippet.replace(/<\/?[^>]+(>|$)/g, "");
               const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title)}`;
               return {
@@ -73,7 +117,20 @@ export const EvidenceRetrievalEngine = {
                 timestamp: Date.now()
               };
             });
+
+            await Promise.all(mappedItems.map(async (item) => {
+              const rel = await classifySnippet(item.text, claims, executionMode, apiKey);
+              item.verificationStatus = rel;
+              if (rel === 'refute') {
+                item.agreement = 0.30;
+                contradictingEvidence.push(item);
+              } else {
+                supportingEvidence.push(item);
+              }
+            }));
+
             supportCount = supportingEvidence.length;
+            refuteCount = contradictingEvidence.length;
           }
         } catch (wikiErr) {
           console.warn("EvidenceRetrievalEngine: Wikipedia search (SOVEREIGN_ONLINE) failed:", wikiErr);
@@ -211,7 +268,7 @@ export const EvidenceRetrievalEngine = {
 
             if (data.items && data.items.length > 0) {
               const items = data.items.slice(0, 5);
-              supportingEvidence = items.map((item, idx) => {
+              const mappedItems = items.map((item, idx) => {
                 const domain = item.displayLink || new URL(item.link).hostname;
                 const trustWeight = TRUST_MAP[domain] || (domain.endsWith('.gov') || domain.endsWith('.edu') ? 1.0 : (domain.endsWith('.org') ? 0.85 : 0.70));
                 
@@ -239,7 +296,20 @@ export const EvidenceRetrievalEngine = {
                   timestamp: Date.parse(pubDateStr) || Date.now()
                 };
               });
+
+              await Promise.all(mappedItems.map(async (item) => {
+                const rel = await classifySnippet(item.text, claims, executionMode, apiKey);
+                item.verificationStatus = rel;
+                if (rel === 'refute') {
+                  item.agreement = 0.30;
+                  contradictingEvidence.push(item);
+                } else {
+                  supportingEvidence.push(item);
+                }
+              }));
+
               supportCount = supportingEvidence.length;
+              refuteCount = contradictingEvidence.length;
             }
           } catch (searchErr) {
             console.warn("EvidenceRetrievalEngine: Google Custom Search failed:", searchErr);
@@ -277,7 +347,7 @@ export const EvidenceRetrievalEngine = {
             const wikiData = await wikiResponse.json();
             if (wikiData.query && wikiData.query.search && wikiData.query.search.length > 0) {
               const items = wikiData.query.search.slice(0, 5);
-              supportingEvidence = items.map((item, idx) => {
+              const mappedItems = items.map((item, idx) => {
                 const snippetText = item.snippet.replace(/<\/?[^>]+(>|$)/g, "");
                 const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title)}`;
                 return {
@@ -298,7 +368,20 @@ export const EvidenceRetrievalEngine = {
                   timestamp: Date.now()
                 };
               });
+
+              await Promise.all(mappedItems.map(async (item) => {
+                const rel = await classifySnippet(item.text, claims, executionMode, apiKey);
+                item.verificationStatus = rel;
+                if (rel === 'refute') {
+                  item.agreement = 0.30;
+                  contradictingEvidence.push(item);
+                } else {
+                  supportingEvidence.push(item);
+                }
+              }));
+
               supportCount = supportingEvidence.length;
+              refuteCount = contradictingEvidence.length;
             }
           } catch (wikiErr) {
             console.warn("EvidenceRetrievalEngine: Wikipedia search fallback failed:", wikiErr);

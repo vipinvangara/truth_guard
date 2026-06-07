@@ -123,17 +123,38 @@ export const AnalysisReportBuilder = {
     const textLower = (mediaRef.text || '').toLowerCase();
     const isWW2 = textLower.includes('lost ww2') || textLower.includes('allies lost') || textLower.includes('ww2');
     
-    const verifiabilityDesc = isWW2 
-      ? "The claim is false: the United States and its allies were part of the victorious Allied powers in World War II, and Germany and Japan surrendered to the Allies in 1945. Multiple authoritative sources explicitly state that the Allies, including the US, achieved military victory over the Axis powers and that Nazi Germany and Japan were defeated.[2][6][9][10]"
-      : (isUnknownContext ? "No matching historical or factual context was found in the local offline database to verify this claim." : (contradictions.length > 0 ? contradictions[0].contradiction : "Claim content has been analyzed against active reference indexes and consensus databases."));
+    // Build a dynamic, claim-aware verifiability description that always explains the score.
+    const supportCount = evidenceResult.retrievalMetrics?.supportCount || 0;
+    const refuteCount = evidenceResult.retrievalMetrics?.refuteCount || 0;
+    const claimSummary = claims.map(c => `"${c.text || ''}"`).filter(Boolean).join(', ');
+    
+    let verifiabilityDesc;
+    if (isWW2) {
+      verifiabilityDesc = "The claim is false: the United States and its allies were part of the victorious Allied powers in World War II, and Germany and Japan surrendered to the Allies in 1945. Multiple authoritative sources explicitly state that the Allies, including the US, achieved military victory over the Axis powers and that Nazi Germany and Japan were defeated.[2][6][9][10]";
+    } else if (isUnknownContext) {
+      verifiabilityDesc = `No matching historical or factual context was found in the local offline database to verify ${claimSummary || 'this claim'}. Enable consensus mode for cloud-backed verification.`;
+    } else if (contradictions.length > 0) {
+      const firstCon = contradictions[0];
+      verifiabilityDesc = `Factual contradiction detected for ${claimSummary || 'this claim'}: ${firstCon.contradiction || firstCon.observation || 'A factual discrepancy was identified.'}` +
+        (refuteCount > 0 ? ` ${refuteCount} refuting source${refuteCount > 1 ? 's' : ''} found.` : '');
+    } else if (supportCount > 0) {
+      verifiabilityDesc = `${claimSummary ? `The claim ${claimSummary} was` : 'The content was'} cross-referenced against ${supportCount} source${supportCount > 1 ? 's' : ''}. No factual contradictions were detected. The claim is consistent with available evidence.`;
+    } else {
+      verifiabilityDesc = `${claimSummary ? `The claim ${claimSummary}` : 'Content'} was analyzed against active reference indexes. No factual contradictions or mismatches were detected in the evaluated signals.`;
+    }
 
     const emotionalManipulationDesc = isWW2
       ? "The statement presents a demonstrably false claim ('US and allies lost ww2') as a certainty, which is a form of false certainty. While not explicitly stated, such a claim often implies a 'they're hiding this' or 'media won't report' conspiracy framing, suggesting that the widely accepted historical narrative is incorrect due to some hidden agenda or cover-up. The brevity and directness of the false claim contribute to its manipulative potential by presenting a radical falsehood as a simple fact."
       : (narrativeResult.indicators?.[0] || "No significant emotional framing, clickbait markers, or urgency keywords detected in structure.");
 
+    const topSources = sources.slice(0, 3).map(s => s.source || s.domain).filter(Boolean);
     const sourceReputationDesc = isWW2
       ? "Backed by high-credibility sources: history.state.gov."
-      : (isUnknownContext ? "No local source records or fact-checking references correspond to the parsed claim context." : "Corroborating web sources resolve to verified educational or governmental root indices.");
+      : (isUnknownContext 
+          ? "No local source records or fact-checking references correspond to the parsed claim context." 
+          : (topSources.length > 0 
+              ? `Corroborating web sources resolve to verified educational or governmental root indices. Top sources consulted: ${topSources.join(', ')}.`
+              : "Corroborating web sources resolve to verified educational or governmental root indices."));
 
     const signals = [
       {
