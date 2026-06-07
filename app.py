@@ -2,6 +2,7 @@ import os
 import base64
 import json
 import logging
+import urllib.parse
 from io import BytesIO
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
@@ -9,6 +10,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from PIL import Image
 import numpy as np
+
+try:
+    import httpx
+    HAS_HTTPX = True
+except ImportError:
+    HAS_HTTPX = False
+    import urllib.request
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -435,6 +443,161 @@ async def inference_audio(
             logger.error(f"Error running Whisper transcription model: {e}. Falling back to rules.")
             
     return run_heuristic_audio(payload)
+
+
+class EvidenceSearchRequest(BaseModel):
+    query: str
+    limit: Optional[int] = 8
+
+
+@app.post("/evidence/search")
+async def evidence_search(request: EvidenceSearchRequest):
+    """
+    Server-side multi-source evidence search proxy.
+    Queries Wikipedia, DuckDuckGo Instant Answer API, and Wikidata in parallel.
+    This bypasses CORS restrictions that prevent browsers from calling some APIs directly.
+    """
+    query = request.query.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    logger.info(f"Evidence search request: '{query}'")
+
+    encoded_query = urllib.parse.quote(query)
+    results = []
+
+    async def fetch_wikipedia():
+        try:
+            wiki_url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={encoded_query}&utf8=&format=json&srlimit=3"
+            if HAS_HTTPX:
+                async with httpx.AsyncClient(timeout=8.0) as client:
+                    resp = await client.get(wiki_url)
+                    data = resp.json()
+            else:
+                import asyncio
+                loop = asyncio.get_event_loop()
+                raw = await loop.run_in_executor(None, lambda: urllib.request.urlopen(wiki_url, timeout=8).read())
+                data = json.loads(raw)
+
+            items = []
+            if data.get("query", {}).get("search"):
+                for i, item in enumerate(data["query"]["search"][:3]):
+                    import re
+                    snippet = re.sub(r"<[^>]+>", "", item.get("snippet", ""))
+                    title = item.get("title", "")
+                    items.append({
+                        "id": f"ref-wiki-{i}",
+                        "domain": "wikipedia.org",
+                        "name": title,
+                        "url": f"https://en.wikipedia.org/wiki/{urllib.parse.quote(title)}",
+                        "source": "Wikipedia",
+                        "text": snippet,
+                        "summary": snippet,
+                        "trustScore": 0.90,
+                        "reliability": 0.90
+                    })
+            return items
+        except Exception as e:
+            logger.warning(f"Wikipedia search failed: {e}")
+            return []
+
+    async def fetch_duckduckgo():
+        try:
+            ddg_url = f"https://api.duckduckgo.com/?q={encoded_query}&format=json&no_redirect=1&no_html=1&skip_disambig=1"
+            if HAS_HTTPX:
+                async with httpx.AsyncClient(timeout=8.0) as client:
+                    resp = await client.get(ddg_url, headers={"User-Agent": "TruthGuard/1.0"})
+                    data = resp.json()
+            else:
+                import asyncio
+                loop = asyncio.get_event_loop()
+                req = urllib.request.Request(ddg_url, headers={"User-Agent": "TruthGuard/1.0"})
+                raw = await loop.run_in_executor(None, lambda: urllib.request.urlopen(req, timeout=8).read())
+                data = json.loads(raw)
+
+            items = []
+            abstract_text = data.get("AbstractText", "")
+            abstract_source = data.get("AbstractSource", "DuckDuckGo")
+            abstract_url = data.get("AbstractURL", f"https://duckduckgo.com/?q={encoded_query}")
+            heading = data.get("Heading", query)
+
+            if abstract_text and len(abstract_text) > 30:
+                source_domain = abstract_source.lower().replace(" ", "") + ".org"
+                items.append({
+                    "id": "ref-ddg-abstract",
+                    "domain": source_domain,
+                    "name": heading,
+                    "url": abstract_url,
+                    "source": abstract_source,
+                    "text": abstract_text,
+                    "summary": abstract_text,
+                    "trustScore": 0.88,
+                    "reliability": 0.88
+                })
+
+            # Also include related topics
+            for j, topic in enumerate(data.get("RelatedTopics", [])[:2]):
+                topic_text = topic.get("Text", "")
+                if topic_text and len(topic_text) > 20:
+                    items.append({
+                        "id": f"ref-ddg-topic-{j}",
+                        "domain": "duckduckgo.com",
+                        "name": topic.get("Name", f"Related: {query}"),
+                        "url": topic.get("FirstURL", f"https://duckduckgo.com/?q={encoded_query}"),
+                        "source": "DuckDuckGo",
+                        "text": topic_text,
+                        "summary": topic_text,
+                        "trustScore": 0.75,
+                        "reliability": 0.75
+                    })
+            return items
+        except Exception as e:
+            logger.warning(f"DuckDuckGo search failed: {e}")
+            return []
+
+    async def fetch_wikidata():
+        try:
+            wd_url = f"https://www.wikidata.org/w/api.php?action=wbsearchentities&search={encoded_query}&language=en&format=json&limit=2"
+            if HAS_HTTPX:
+                async with httpx.AsyncClient(timeout=8.0) as client:
+                    resp = await client.get(wd_url)
+                    data = resp.json()
+            else:
+                import asyncio
+                loop = asyncio.get_event_loop()
+                raw = await loop.run_in_executor(None, lambda: urllib.request.urlopen(wd_url, timeout=8).read())
+                data = json.loads(raw)
+
+            items = []
+            for k, entity in enumerate(data.get("search", [])[:2]):
+                label = entity.get("label", "")
+                description = entity.get("description", "")
+                if description and len(description) > 10:
+                    items.append({
+                        "id": f"ref-wikidata-{k}",
+                        "domain": "wikidata.org",
+                        "name": label,
+                        "url": f"https://www.wikidata.org/wiki/{entity.get('id', '')}",
+                        "source": "Wikidata",
+                        "text": f"{label}: {description}",
+                        "summary": f"{label}: {description}",
+                        "trustScore": 0.88,
+                        "reliability": 0.88
+                    })
+            return items
+        except Exception as e:
+            logger.warning(f"Wikidata search failed: {e}")
+            return []
+
+    import asyncio
+    wiki_items, ddg_items, wd_items = await asyncio.gather(
+        fetch_wikipedia(), fetch_duckduckgo(), fetch_wikidata()
+    )
+
+    results = wiki_items + ddg_items + wd_items
+    logger.info(f"Evidence search returned {len(results)} results ({len(wiki_items)} wiki, {len(ddg_items)} ddg, {len(wd_items)} wikidata)")
+
+    return {"results": results[:request.limit]}
 
 
 @app.get("/health")

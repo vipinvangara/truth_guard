@@ -3,7 +3,7 @@
 
 export const EmbeddingStore = {
   // Current active version flags
-  modelVersion: "tg-v2.2",
+  modelVersion: "tg-v2.3",
   embeddingVersion: "jaccard-32d",
   
   // Database store: contentHash -> { embedding: Array<number>, text: string, report: Object, modelVersion: string, embeddingVersion: string }

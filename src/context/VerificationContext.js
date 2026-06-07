@@ -91,42 +91,47 @@ export function VerificationProvider({ children }) {
               const mappedExplainers = [];
               
               presentClaims.forEach((claimText, i) => {
-                const con = (partialReport.contradictions || []).find(c => c.contradiction === claimText);
+                // Contradictions from contextualResult have {type, description, severity} — NOT a .contradiction field.
+                // The claim triggered a contradiction if ANY finding was generated (the NLI engine found the whole claim contradicted).
+                const hasContradictions = (partialReport.contradictions || []).length > 0;
+                const firstCon = hasContradictions ? partialReport.contradictions[0] : null;
                 
-                if (con) {
-                  // Disputed Claim (Red)
-                  const id = `con-${scanId}-${i}`;
+                // Sources from evidence retrieval — split into refuting vs supporting
+                const allSources = partialReport.sources || [];
+                const refutingSources = allSources.filter(s => s.verificationStatus === 'refute');
+                const supportingSources = allSources.filter(s => s.verificationStatus !== 'refute');
+                
+                if (hasContradictions) {
+                  // ─── Contradicted Claim (Red) ───
                   mappedHighlights.push({
-                    id,
+                    id: `con-${scanId}-${i}`,
                     text: claimText,
                     type: 'danger',
-                    reason: con.observation || 'Contradiction detected.'
+                    reason: firstCon.description || firstCon.type || 'Contradiction detected by NLI engine.'
                   });
                   
-                  // Filter sources relevant to this contradiction
-                  const lowerClaim = claimText.toLowerCase();
-                  let relevantSources = partialReport.sources || [];
-                  if (lowerClaim.includes('deletion') || lowerClaim.includes('rotterdam')) {
-                    relevantSources = (partialReport.sources || []).filter(s => s.id.includes('google') || s.id.includes('alerts'));
-                  } else if (lowerClaim.includes('withdrawal') || lowerClaim.includes('emergency')) {
-                    relevantSources = (partialReport.sources || []).filter(s => s.id.includes('reuters') || s.id.includes('reserve'));
-                  } else {
-                    // Dynamic Wikipedia/entity matches using word overlap
-                    const claimWords = lowerClaim.split(/[^a-zA-Z0-9]+/).filter(w => w.length > 3);
-                    const matched = (partialReport.sources || []).filter(s => {
-                      const idLower = (s.id || '').toLowerCase();
-                      const nameLower = (s.name || '').toLowerCase();
-                      return claimWords.some(word => idLower.includes(word) || nameLower.includes(word));
-                    });
-                    if (matched.length > 0) {
-                      relevantSources = matched;
-                    }
-                  }
+                  // Use refuting sources first, fall back to all sources if none tagged
+                  const evidenceSources = (refutingSources.length > 0 ? refutingSources : allSources)
+                    .slice(0, 4)
+                    .map(s => ({
+                      id: s.id || `src-${Math.random()}`,
+                      name: s.name || s.source || s.domain,
+                      url: s.url || '#',
+                      source: s.source || s.domain,
+                      summary: s.summary || s.text || ''
+                    }));
                   
                   mappedExplainers.push({
                     phrase: claimText,
-                    explanation: con.observation || 'This statement contradicts established facts in our knowledge base.',
-                    sources: relevantSources
+                    explanation: firstCon.description
+                      || `The claim "${claimText}" was found to contradict available evidence. ${refutingSources.length} source(s) refuted this claim.`,
+                    sources: evidenceSources.length > 0 ? evidenceSources : [{
+                      id: 'ref-nli-engine',
+                      name: 'Local DeBERTa-v3-NLI Engine',
+                      url: 'http://localhost:8000',
+                      source: 'Local NLI Container',
+                      summary: 'Contradiction determined via on-device NLI inference model.'
+                    }]
                   });
                 } else {
                   const lowerClaim = claimText.toLowerCase();
@@ -134,7 +139,7 @@ export function VerificationProvider({ children }) {
                   const isVerifiedSystem = lowerClaim.includes('version v4.2.1') || lowerClaim.includes('calibrated') || lowerClaim.includes('verified secure');
                   
                   if (isVerifiedC2PA || isVerifiedSystem) {
-                    // Verified Claim (Green)
+                    // ─── Verified Claim (Green) ───
                     mappedHighlights.push({
                       id: `hl-verified-${scanId}-${i}`,
                       text: claimText,
@@ -144,48 +149,56 @@ export function VerificationProvider({ children }) {
                     
                     let relevantSources = [];
                     if (isVerifiedC2PA) {
-                      relevantSources = (partialReport.sources || []).filter(s => s.id.includes('c2pa') || s.id.includes('credential'));
+                      relevantSources = allSources.filter(s => s.id.includes('c2pa') || s.id.includes('credential'));
                       if (relevantSources.length === 0) {
-                        relevantSources = [{
-                          id: "ref-c2pa-portal",
-                          name: "C2PA Coalition Org Portal",
-                          url: "https://c2pa.org",
-                          source: "C2PA Coalition Org Portal",
-                          summary: "Coalition for Content Provenance and Authenticity cryptographic manufacturer signature registry."
-                        }];
+                        relevantSources = [{ id: "ref-c2pa-portal", name: "C2PA Coalition Org Portal", url: "https://c2pa.org", source: "C2PA Coalition Org Portal", summary: "Coalition for Content Provenance and Authenticity cryptographic manufacturer signature registry." }];
                       }
                     } else {
-                      relevantSources = (partialReport.sources || []).filter(s => s.id.includes('releases') || s.id.includes('github'));
+                      relevantSources = allSources.filter(s => s.id.includes('releases') || s.id.includes('github'));
                       if (relevantSources.length === 0) {
-                        relevantSources = [{
-                          id: "ref-github-releases",
-                          name: "Truth Guard Github Releases",
-                          url: "https://github.com/truthguard/releases",
-                          source: "Truth Guard Github Releases",
-                          summary: "Official production release channel for Truth Guard database updates."
-                        }];
+                        relevantSources = [{ id: "ref-github-releases", name: "Truth Guard Github Releases", url: "https://github.com/truthguard/releases", source: "Truth Guard Github Releases", summary: "Official production release channel for Truth Guard database updates." }];
                       }
                     }
                     
                     mappedExplainers.push({
                       phrase: claimText,
-                      explanation: isVerifiedC2PA 
+                      explanation: isVerifiedC2PA
                         ? 'This hardware metadata signature has been cryptographically validated against the C2PA manufacturer registry.'
                         : 'System log matches standard production database version deployed in the official repository.',
                       sources: relevantSources
                     });
-                  } else {
-                    // General/Uncertain (Yellow/Orange)
+                  } else if (supportingSources.length > 0) {
+                    // ─── Evidence-Supported Claim (Green) ───
                     mappedHighlights.push({
-                      id: `hl-uncertain-${scanId}-${i}`,
+                      id: `hl-supported-${scanId}-${i}`,
                       text: claimText,
-                      type: 'warning',
-                      reason: 'Uncertain - Claim could not be independently verified by external sources.'
+                      type: 'success',
+                      reason: `Claim is consistent with ${supportingSources.length} source(s) found in evidence retrieval. No contradictions detected.`
                     });
                     
                     mappedExplainers.push({
                       phrase: claimText,
-                      explanation: 'No direct cryptographic signatures or external fact-checking database records correspond to this descriptive detail.',
+                      explanation: `The claim "${claimText}" was cross-referenced against ${supportingSources.length} source(s) and no factual contradictions were found. The NLI engine determined the claim is consistent with available evidence.`,
+                      sources: supportingSources.slice(0, 4).map(s => ({
+                        id: s.id || `src-${Math.random()}`,
+                        name: s.name || s.source || s.domain,
+                        url: s.url || '#',
+                        source: s.source || s.domain,
+                        summary: s.summary || s.text || ''
+                      }))
+                    });
+                  } else {
+                    // ─── Unverified / No Evidence (Yellow) ───
+                    mappedHighlights.push({
+                      id: `hl-uncertain-${scanId}-${i}`,
+                      text: claimText,
+                      type: 'warning',
+                      reason: 'Uncertain — no matching external sources found in evidence retrieval. Unable to confirm or deny.'
+                    });
+                    
+                    mappedExplainers.push({
+                      phrase: claimText,
+                      explanation: `No external sources were found that could confirm or deny "${claimText}". This claim could not be independently verified by available open databases. Consider cross-referencing with authoritative sources manually.`,
                       sources: []
                     });
                   }
