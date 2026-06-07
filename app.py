@@ -469,14 +469,16 @@ async def evidence_search(request: EvidenceSearchRequest):
     async def fetch_wikipedia():
         try:
             wiki_url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={encoded_query}&utf8=&format=json&srlimit=3"
+            ua = "TruthGuard/1.0 (fact-checking assistant; contact@truthguard.app)"
             if HAS_HTTPX:
                 async with httpx.AsyncClient(timeout=8.0) as client:
-                    resp = await client.get(wiki_url)
+                    resp = await client.get(wiki_url, headers={"User-Agent": ua})
                     data = resp.json()
             else:
                 import asyncio
                 loop = asyncio.get_event_loop()
-                raw = await loop.run_in_executor(None, lambda: urllib.request.urlopen(wiki_url, timeout=8).read())
+                req = urllib.request.Request(wiki_url, headers={"User-Agent": ua})
+                raw = await loop.run_in_executor(None, lambda: urllib.request.urlopen(req, timeout=8).read())
                 data = json.loads(raw)
 
             items = []
@@ -558,14 +560,16 @@ async def evidence_search(request: EvidenceSearchRequest):
     async def fetch_wikidata():
         try:
             wd_url = f"https://www.wikidata.org/w/api.php?action=wbsearchentities&search={encoded_query}&language=en&format=json&limit=2"
+            ua = "TruthGuard/1.0 (fact-checking assistant; contact@truthguard.app)"
             if HAS_HTTPX:
                 async with httpx.AsyncClient(timeout=8.0) as client:
-                    resp = await client.get(wd_url)
+                    resp = await client.get(wd_url, headers={"User-Agent": ua})
                     data = resp.json()
             else:
                 import asyncio
                 loop = asyncio.get_event_loop()
-                raw = await loop.run_in_executor(None, lambda: urllib.request.urlopen(wd_url, timeout=8).read())
+                req = urllib.request.Request(wd_url, headers={"User-Agent": ua})
+                raw = await loop.run_in_executor(None, lambda: urllib.request.urlopen(req, timeout=8).read())
                 data = json.loads(raw)
 
             items = []
