@@ -409,16 +409,19 @@ export const AnalysisCoordinator = {
 
     // 1. Dynamic Named Entity Recognition (NER)
     const entities = [];
-    if (lower.includes('stalin')) entities.push('Joseph Stalin');
-    if (lower.includes('roosevelt') || lower.includes('fdr')) entities.push('Franklin D. Roosevelt');
-    if (lower.includes('us') || lower.includes('united states') || lower.includes('allies')) {
+    if (/\b(stalin|joseph stalin)\b/i.test(rawText)) entities.push('Joseph Stalin');
+    if (/\b(roosevelt|fdr|franklin d\. roosevelt)\b/i.test(rawText)) entities.push('Franklin D. Roosevelt');
+    if (/\b(us|usa|united states)\b/i.test(rawText) || /\ballies\b/i.test(rawText)) {
       entities.push('United States');
       entities.push('Allied Powers');
     }
-    if (lower.includes('germany')) entities.push('Germany');
-    if (lower.includes('japan')) entities.push('Japan');
-    if (lower.includes('rotterdam')) entities.push('Rotterdam');
-    if (lower.includes('google')) entities.push('Google');
+    if (/\bgermany\b/i.test(rawText)) entities.push('Germany');
+    if (/\bjapan\b/i.test(rawText)) entities.push('Japan');
+    if (/\brotterdam\b/i.test(rawText)) entities.push('Rotterdam');
+    if (/\bgoogle\b/i.test(rawText)) entities.push('Google');
+    if (/\b(israel|israeli)\b/i.test(rawText)) entities.push('Israel');
+    if (/\b(palestin|palestine|palestinian|palestinians|palestenians)\b/i.test(rawText)) entities.push('Palestinians');
+    if (/\b(peace|treaty)\b/i.test(rawText)) entities.push('Peace Treaty');
 
     // 2. Intent and Context Window extraction
     let intent = 'fact_assertion';
