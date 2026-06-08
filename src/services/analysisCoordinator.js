@@ -77,7 +77,10 @@ export const AnalysisCoordinator = {
     
     // Resolve battery and thermal-aware policy from offline scheduler
     const policy = InferenceScheduler.resolveExecutionPolicy(mediaRef);
-    const retrievalMode = (consensusAuthorized || executionMode === 'SOVEREIGN_CONTAINER_ONLINE') ? "CONSENSUS_MODE" : "LOCAL_ONLY";
+    // PROPRIETARY_CLOUD (API key present) always uses CONSENSUS_MODE so the Gemini
+    // fact-check path in EvidenceRetrievalEngine is reachable without requiring the
+    // user to also manually toggle the Authorize sandbox switch.
+    const retrievalMode = (consensusAuthorized || executionMode === 'SOVEREIGN_CONTAINER_ONLINE' || executionMode === 'PROPRIETARY_CLOUD') ? "CONSENSUS_MODE" : "LOCAL_ONLY";
 
     // Initialize blank progressive report structure
     let report = {
