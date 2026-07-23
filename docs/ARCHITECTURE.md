@@ -2,7 +2,7 @@
 
 **Goal**: An Android app that lets anyone who receives a suspicious WhatsApp forward (text, image, video, audio) check it against verifiable sources and get an honest, cited verdict — combating "WhatsApp University" misinformation.
 
-**Status**: Adopted 2026-07-23. Phase P0 (skeleton + share target) is built; see [ROADMAP.md](ROADMAP.md) for current phase.
+**Status**: Adopted 2026-07-23. See [ROADMAP.md](ROADMAP.md) for current phase and [BACKLOG.md](BACKLOG.md) for open tasks.
 
 **Foundational decisions** (rationale in [decisions/](decisions/)):
 1. **Native Kotlin + Jetpack Compose** — full rebuild, replacing an earlier Expo/React Native prototype (see [ADR 0001](decisions/0001-native-kotlin-rebuild.md)).

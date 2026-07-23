@@ -7,7 +7,9 @@ clone to merged PR.
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — what we're building and how the
   pieces fit. **Ten minutes here saves hours of misdirected work.**
-- [docs/ROADMAP.md](docs/ROADMAP.md) — current phase and what's up next.
+- [docs/ROADMAP.md](docs/ROADMAP.md) — current *phase* (the big picture).
+- [docs/BACKLOG.md](docs/BACKLOG.md) — current *tasks* (what to actually pick
+  up — start here if you want something concrete to work on).
 - [docs/decisions/](docs/decisions/) — why the big choices were made (native
   Kotlin, hybrid inference, free-first evidence tiers). Please read before
   proposing to change one of these.
@@ -31,7 +33,8 @@ run means a green PR build.
 
 ## Workflow
 
-1. Pick or open a GitHub issue; comment that you're taking it.
+1. Pick an unchecked item from [docs/BACKLOG.md](docs/BACKLOG.md) (or open a
+   GitHub issue/Discussion for something not on it).
 2. Branch from `master`: `feature/<short-name>` or `fix/<short-name>`.
 3. Make focused commits — one responsibility per commit, imperative subject
    line ("Add evidence cache TTL", not "added stuff").
@@ -66,9 +69,9 @@ for the cautionary tale):
 
 ## Where help is most valuable right now
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the current phase. Issues labeled
-`good-first-issue` are scoped for newcomers; `help-wanted` marks the areas
-where an extra pair of hands matters most.
+[docs/BACKLOG.md](docs/BACKLOG.md) is the task list — items are tagged 🟢
+good first issue, 🟡 medium, or 🔴 needs a design discussion first. Check it
+off in the PR that completes it.
 
 ## Questions
 

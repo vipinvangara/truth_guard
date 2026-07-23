@@ -15,5 +15,5 @@ labels: enhancement
 
 ## Scope check
 
-- [ ] I've read [docs/ROADMAP.md](../../blob/master/docs/ROADMAP.md) — this fits the current phase or is explicitly proposed for a later one
+- [ ] I've read [docs/ROADMAP.md](../../blob/master/docs/ROADMAP.md) and [docs/BACKLOG.md](../../blob/master/docs/BACKLOG.md) — this fits the current phase/isn't already tracked, or is explicitly proposed for a later one
 - [ ] This respects the ground rules in CONTRIBUTING.md (no fabricated output, privacy model, honest verdicts)
