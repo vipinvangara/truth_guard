@@ -15,6 +15,12 @@ local.properties
 *.jks
 *.keystore
 
+# Python backend
+backend/.venv/
+__pycache__/
+*.pyc
+verify_cache.db
+
 # OS
 .DS_Store
 Thumbs.db
