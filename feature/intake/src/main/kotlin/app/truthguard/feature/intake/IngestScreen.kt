@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material3.Card
@@ -26,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -53,6 +56,7 @@ fun IngestScreen(viewModel: IngestViewModel = hiltViewModel()) {
     val event by viewModel.events.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var pastedText by remember { mutableStateOf("") }
+    val clipboard = LocalClipboardManager.current
 
     LaunchedEffect(event) {
         when (val current = event) {
@@ -102,6 +106,23 @@ fun IngestScreen(viewModel: IngestViewModel = hiltViewModel()) {
                 },
                 minLines = 2
             )
+
+            // WhatsApp never offers the system share sheet for text messages, so
+            // copy-then-paste is the primary text flow; make it one tap.
+            if (pastedText.isBlank()) {
+                TextButton(
+                    onClick = { clipboard.getText()?.let { pastedText = it.text } },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Icon(
+                        Icons.Filled.ContentPaste,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.intake_paste_from_clipboard))
+                }
+            }
 
             Spacer(Modifier.height(24.dp))
 
