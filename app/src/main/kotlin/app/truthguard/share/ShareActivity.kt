@@ -13,8 +13,8 @@ import app.truthguard.data.vault.media.SharedMediaStore
 import app.truthguard.domain.model.SharedContent
 import app.truthguard.domain.usecase.IngestSharedContentUseCase
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.launch
 
 /**
  * Trampoline for content shared from other apps (the primary entry point).
@@ -63,22 +63,21 @@ class ShareActivity : ComponentActivity() {
         data class MediaUri(val uri: Uri) : RawShare
     }
 
-    private fun extractSharedContent(intent: Intent): RawShare? =
-        when (intent.action) {
-            Intent.ACTION_PROCESS_TEXT ->
-                intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)
-                    ?.toString()
-                    ?.let(RawShare::Text)
+    private fun extractSharedContent(intent: Intent): RawShare? = when (intent.action) {
+        Intent.ACTION_PROCESS_TEXT ->
+            intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)
+                ?.toString()
+                ?.let(RawShare::Text)
 
-            Intent.ACTION_SEND ->
-                if (intent.type == "text/plain") {
-                    intent.getStringExtra(Intent.EXTRA_TEXT)?.let(RawShare::Text)
-                } else {
-                    getSharedUri(intent)?.let(RawShare::MediaUri)
-                }
+        Intent.ACTION_SEND ->
+            if (intent.type == "text/plain") {
+                intent.getStringExtra(Intent.EXTRA_TEXT)?.let(RawShare::Text)
+            } else {
+                getSharedUri(intent)?.let(RawShare::MediaUri)
+            }
 
-            else -> null
-        }
+        else -> null
+    }
 
     private fun getSharedUri(intent: Intent): Uri? =
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -88,20 +87,19 @@ class ShareActivity : ComponentActivity() {
             intent.getParcelableExtra(Intent.EXTRA_STREAM)
         }
 
-    private suspend fun resolveContent(raw: RawShare): SharedContent =
-        when (raw) {
-            is RawShare.Text -> SharedContent.Text(raw.value)
-            is RawShare.MediaUri -> {
-                val persisted = sharedMediaStore.persist(raw.uri)
-                SharedContent.Media(persisted.localPath, persisted.mimeType)
-            }
+    private suspend fun resolveContent(raw: RawShare): SharedContent = when (raw) {
+        is RawShare.Text -> SharedContent.Text(raw.value)
+        is RawShare.MediaUri -> {
+            val persisted = sharedMediaStore.persist(raw.uri)
+            SharedContent.Media(persisted.localPath, persisted.mimeType)
         }
+    }
 
     private fun routeToMain() {
         startActivity(
             Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            },
+            }
         )
     }
 

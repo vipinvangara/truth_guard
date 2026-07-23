@@ -25,9 +25,7 @@ internal abstract class VaultModule {
     companion object {
         @Provides
         @Singleton
-        fun provideDatabase(
-            @ApplicationContext context: Context,
-        ): TruthGuardDatabase =
+        fun provideDatabase(@ApplicationContext context: Context): TruthGuardDatabase =
             Room.databaseBuilder(context, TruthGuardDatabase::class.java, "truthguard.db")
                 .build()
 

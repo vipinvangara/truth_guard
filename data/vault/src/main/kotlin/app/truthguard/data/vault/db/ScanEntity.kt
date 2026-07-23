@@ -10,5 +10,5 @@ data class ScanEntity(
     val sourceText: String?,
     val localMediaPath: String?,
     val status: String,
-    val createdAtEpochMillis: Long,
+    val createdAtEpochMillis: Long
 )

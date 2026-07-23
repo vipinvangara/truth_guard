@@ -6,7 +6,7 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [ScanEntity::class],
     version = 1,
-    exportSchema = true,
+    exportSchema = true
 )
 abstract class TruthGuardDatabase : RoomDatabase() {
     abstract fun scanDao(): ScanDao

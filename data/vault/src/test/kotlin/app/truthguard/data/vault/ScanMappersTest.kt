@@ -4,8 +4,8 @@ import app.truthguard.data.vault.db.ScanEntity
 import app.truthguard.domain.model.MediaType
 import app.truthguard.domain.model.Scan
 import app.truthguard.domain.model.ScanStatus
-import org.junit.Test
 import kotlin.test.assertEquals
+import org.junit.Test
 
 class ScanMappersTest {
     private val domain =
@@ -15,7 +15,7 @@ class ScanMappersTest {
             sourceText = null,
             localMediaPath = "/data/media/abc",
             status = ScanStatus.QUEUED,
-            createdAtEpochMillis = 1_700_000_000_000,
+            createdAtEpochMillis = 1_700_000_000_000
         )
 
     @Test
@@ -32,7 +32,7 @@ class ScanMappersTest {
                 sourceText = "claim",
                 localMediaPath = null,
                 status = "DONE",
-                createdAtEpochMillis = 5L,
+                createdAtEpochMillis = 5L
             )
 
         val mapped = entity.toDomain()

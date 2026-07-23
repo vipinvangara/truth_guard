@@ -48,9 +48,7 @@ import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun IngestScreen(
-    viewModel: IngestViewModel = hiltViewModel(),
-) {
+fun IngestScreen(viewModel: IngestViewModel = hiltViewModel()) {
     val scans by viewModel.scans.collectAsStateWithLifecycle()
     val event by viewModel.events.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -74,14 +72,14 @@ fun IngestScreen(
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.intake_title)) }) },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Column(
             modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp),
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
         ) {
             OutlinedTextField(
                 value = pastedText,
@@ -94,15 +92,15 @@ fun IngestScreen(
                         onClick = {
                             viewModel.checkPastedText(pastedText)
                             pastedText = ""
-                        },
+                        }
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.Send,
-                            contentDescription = stringResource(R.string.intake_check_action),
+                            contentDescription = stringResource(R.string.intake_check_action)
                         )
                     }
                 },
-                minLines = 2,
+                minLines = 2
             )
 
             Spacer(Modifier.height(24.dp))
@@ -112,7 +110,7 @@ fun IngestScreen(
             } else {
                 Text(
                     text = stringResource(R.string.intake_recent_header),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -127,17 +125,17 @@ fun IngestScreen(
 private fun EmptyState() {
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = stringResource(R.string.intake_empty_title),
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleMedium
         )
         Spacer(Modifier.height(8.dp))
         Text(
             text = stringResource(R.string.intake_empty_body),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -147,31 +145,31 @@ private fun ScanRow(scan: Scan) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector =
-                    when (scan.mediaType) {
-                        MediaType.IMAGE -> Icons.Filled.Image
-                        else -> Icons.Filled.Notes
-                    },
+                when (scan.mediaType) {
+                    MediaType.IMAGE -> Icons.Filled.Image
+                    else -> Icons.Filled.Notes
+                },
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.primary
             )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     text = scan.sourceText ?: stringResource(R.string.intake_shared_media_label),
                     style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
+                    maxLines = 2
                 )
                 Text(
                     text =
-                        DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
-                            .format(Date(scan.createdAtEpochMillis)),
+                    DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+                        .format(Date(scan.createdAtEpochMillis)),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Spacer(Modifier.width(8.dp))
@@ -187,7 +185,7 @@ private fun StatusBadge(status: ScanStatus) {
             ScanStatus.QUEUED -> stringResource(R.string.status_queued)
             ScanStatus.EXTRACTING,
             ScanStatus.RETRIEVING,
-            ScanStatus.JUDGING,
+            ScanStatus.JUDGING
             -> stringResource(R.string.status_analyzing)
 
             ScanStatus.DONE -> stringResource(R.string.status_done)
@@ -197,6 +195,6 @@ private fun StatusBadge(status: ScanStatus) {
     Text(
         text = label,
         style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.secondary,
+        color = MaterialTheme.colorScheme.secondary
     )
 }

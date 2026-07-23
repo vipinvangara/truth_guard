@@ -6,65 +6,60 @@ import app.truthguard.domain.model.Scan
 import app.truthguard.domain.model.ScanStatus
 import app.truthguard.domain.model.SharedContent
 import app.truthguard.domain.repository.ScanRepository
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 class IngestSharedContentUseCaseTest {
     private val repository = FakeScanRepository()
     private val useCase = IngestSharedContentUseCase(repository)
 
     @Test
-    fun `text content is persisted as queued scan`() =
-        runTest {
-            val result = useCase(SharedContent.Text("Breaking: all banks closed on Monday"))
+    fun `text content is persisted as queued scan`() = runTest {
+        val result = useCase(SharedContent.Text("Breaking: all banks closed on Monday"))
 
-            val scan = result.getOrThrow()
-            assertEquals(ScanStatus.QUEUED, scan.status)
-            assertEquals(MediaType.TEXT, scan.mediaType)
-            assertEquals(1, repository.scans.value.size)
-        }
-
-    @Test
-    fun `blank text is rejected without touching the repository`() =
-        runTest {
-            val result = useCase(SharedContent.Text("   "))
-
-            assertIs<IngestException.EmptyText>(result.exceptionOrNull())
-            assertTrue(repository.scans.value.isEmpty())
-        }
+        val scan = result.getOrThrow()
+        assertEquals(ScanStatus.QUEUED, scan.status)
+        assertEquals(MediaType.TEXT, scan.mediaType)
+        assertEquals(1, repository.scans.value.size)
+    }
 
     @Test
-    fun `image media is accepted`() =
-        runTest {
-            val result = useCase(SharedContent.Media("/data/media/fwd.jpg", "image/jpeg"))
+    fun `blank text is rejected without touching the repository`() = runTest {
+        val result = useCase(SharedContent.Text("   "))
 
-            assertEquals(MediaType.IMAGE, result.getOrThrow().mediaType)
-        }
-
-    @Test
-    fun `unsupported media type is rejected`() =
-        runTest {
-            val result = useCase(SharedContent.Media("/data/media/fwd.pdf", "application/pdf"))
-
-            assertIs<IngestException.UnsupportedMediaType>(result.exceptionOrNull())
-            assertTrue(repository.scans.value.isEmpty())
-        }
+        assertIs<IngestException.EmptyText>(result.exceptionOrNull())
+        assertTrue(repository.scans.value.isEmpty())
+    }
 
     @Test
-    fun `repository failure surfaces as failed result`() =
-        runTest {
-            repository.failNextCreate = true
+    fun `image media is accepted`() = runTest {
+        val result = useCase(SharedContent.Media("/data/media/fwd.jpg", "image/jpeg"))
 
-            val result = useCase(SharedContent.Text("some claim"))
+        assertEquals(MediaType.IMAGE, result.getOrThrow().mediaType)
+    }
 
-            assertTrue(result.isFailure)
-        }
+    @Test
+    fun `unsupported media type is rejected`() = runTest {
+        val result = useCase(SharedContent.Media("/data/media/fwd.pdf", "application/pdf"))
+
+        assertIs<IngestException.UnsupportedMediaType>(result.exceptionOrNull())
+        assertTrue(repository.scans.value.isEmpty())
+    }
+
+    @Test
+    fun `repository failure surfaces as failed result`() = runTest {
+        repository.failNextCreate = true
+
+        val result = useCase(SharedContent.Text("some claim"))
+
+        assertTrue(result.isFailure)
+    }
 }
 
 private class FakeScanRepository : ScanRepository {
@@ -80,14 +75,14 @@ private class FakeScanRepository : ScanRepository {
             Scan(
                 id = "scan-${scans.value.size}",
                 mediaType =
-                    when (content) {
-                        is SharedContent.Text -> MediaType.TEXT
-                        is SharedContent.Media -> MediaType.IMAGE
-                    },
+                when (content) {
+                    is SharedContent.Text -> MediaType.TEXT
+                    is SharedContent.Media -> MediaType.IMAGE
+                },
                 sourceText = (content as? SharedContent.Text)?.value,
                 localMediaPath = (content as? SharedContent.Media)?.localPath,
                 status = ScanStatus.QUEUED,
-                createdAtEpochMillis = 0L,
+                createdAtEpochMillis = 0L
             )
         scans.value += scan
         return scan

@@ -21,7 +21,7 @@ private val LightColorScheme =
         onBackground = Slate10,
         surface = Slate95,
         onSurface = Slate10,
-        surfaceVariant = Slate90,
+        surfaceVariant = Slate90
     )
 
 private val DarkColorScheme =
@@ -34,14 +34,14 @@ private val DarkColorScheme =
         background = Slate10,
         onBackground = Slate95,
         surface = Slate20,
-        onSurface = Slate95,
+        onSurface = Slate95
     )
 
 @Composable
 fun TruthGuardTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
-    content: @Composable () -> Unit,
+    content: @Composable () -> Unit
 ) {
     val colorScheme =
         when {
@@ -57,6 +57,6 @@ fun TruthGuardTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = TruthGuardTypography,
-        content = content,
+        content = content
     )
 }

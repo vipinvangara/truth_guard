@@ -17,8 +17,5 @@ interface ScanDao {
     fun observe(id: String): Flow<ScanEntity?>
 
     @Query("UPDATE scans SET status = :status WHERE id = :id")
-    suspend fun updateStatus(
-        id: String,
-        status: String,
-    )
+    suspend fun updateStatus(id: String, status: String)
 }

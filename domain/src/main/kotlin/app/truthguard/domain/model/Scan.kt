@@ -6,5 +6,5 @@ data class Scan(
     val sourceText: String?,
     val localMediaPath: String?,
     val status: ScanStatus,
-    val createdAtEpochMillis: Long,
+    val createdAtEpochMillis: Long
 )
