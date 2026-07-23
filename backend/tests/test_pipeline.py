@@ -9,7 +9,7 @@ import respx
 from app.models import Verdict
 from app.pipeline import verify_text
 
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
 FACTCHECK_URL = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
 WIKI_SEARCH = "https://en.wikipedia.org/w/api.php"
 WIKI_SUMMARY_PATTERN = r"https://en\.wikipedia\.org/api/rest_v1/page/summary/.*"

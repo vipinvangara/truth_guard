@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="verdict_title">Verdict</string>
+    <string name="verdict_back">Back</string>
+    <string name="verdict_not_found">This scan no longer exists.</string>
+    <string name="verdict_analyzing">Checking this against fact-checkers and reference sources…</string>
+    <string name="verdict_local_only_title">Cloud verification is off</string>
+    <string name="verdict_local_only_body">To check this claim against fact-checkers and reference sources, the claim text (never your media or identity) is sent securely to the verification service. Nothing is sent until you enable this.</string>
+    <string name="verdict_enable_cloud">Enable and verify</string>
+    <string name="verdict_failed_title">Verification failed</string>
+    <string name="verdict_failed_body">The verification service couldn\'t be reached. Check your connection and try again.</string>
+    <string name="verdict_retry">Try again</string>
+    <string name="verdict_confidence">%1$d%% confidence</string>
+    <string name="verdict_sources">Sources</string>
+    <string name="verdict_open_source">Open source link</string>
+    <string name="verdict_true">TRUE</string>
+    <string name="verdict_false">FALSE</string>
+    <string name="verdict_misleading">MISLEADING</string>
+    <string name="verdict_unverified">UNVERIFIED</string>
+    <string name="verdict_opinion">OPINION</string>
+</resources>

@@ -1,7 +1,9 @@
 package app.truthguard.data.vault
 
 import app.truthguard.core.common.TimeProvider
+import app.truthguard.data.vault.db.ClaimDao
 import app.truthguard.data.vault.db.ScanDao
+import app.truthguard.domain.model.Claim
 import app.truthguard.domain.model.MediaType
 import app.truthguard.domain.model.Scan
 import app.truthguard.domain.model.ScanStatus
@@ -18,6 +20,7 @@ class ScanRepositoryImpl
 @Inject
 constructor(
     private val scanDao: ScanDao,
+    private val claimDao: ClaimDao,
     private val timeProvider: TimeProvider
 ) : ScanRepository {
     override suspend fun create(content: SharedContent): Scan {
@@ -41,4 +44,22 @@ constructor(
     override fun observeAll(): Flow<List<Scan>> = scanDao.observeAll().map { list -> list.map { it.toDomain() } }
 
     override fun observe(id: String): Flow<Scan?> = scanDao.observe(id).map { it?.toDomain() }
+
+    override fun observeClaims(scanId: String): Flow<List<Claim>> =
+        claimDao.observeClaimsWithEvidence(scanId).map { list -> list.map { it.toDomain() } }
+
+    override suspend fun getScan(id: String): Scan? = scanDao.get(id)?.toDomain()
+
+    override suspend fun updateStatus(id: String, status: ScanStatus) {
+        scanDao.updateStatus(id, status.name)
+    }
+
+    override suspend fun storeClaims(scanId: String, claims: List<Claim>) {
+        val entities = claims.map { it.toEntities() }
+        claimDao.replaceResults(
+            scanId = scanId,
+            claims = entities.map { it.first },
+            evidence = entities.flatMap { it.second }
+        )
+    }
 }

@@ -17,6 +17,8 @@ naming:
     ignoreAnnotated: ["Composable"]
 
 style:
+  ReturnCount:
+    excludeGuardClauses: true
   MagicNumber:
     ignoreAnnotated: ["Composable", "Preview"]
     ignorePropertyDeclaration: true

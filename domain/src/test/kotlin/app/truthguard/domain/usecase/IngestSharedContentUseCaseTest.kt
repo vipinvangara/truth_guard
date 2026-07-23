@@ -1,40 +1,40 @@
 package app.truthguard.domain.usecase
 
+import app.truthguard.core.testing.FakeAnalysisScheduler
+import app.truthguard.core.testing.FakeScanRepository
 import app.truthguard.domain.model.IngestException
 import app.truthguard.domain.model.MediaType
-import app.truthguard.domain.model.Scan
 import app.truthguard.domain.model.ScanStatus
 import app.truthguard.domain.model.SharedContent
-import app.truthguard.domain.repository.ScanRepository
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 class IngestSharedContentUseCaseTest {
     private val repository = FakeScanRepository()
-    private val useCase = IngestSharedContentUseCase(repository)
+    private val scheduler = FakeAnalysisScheduler()
+    private val useCase = IngestSharedContentUseCase(repository, scheduler)
 
     @Test
-    fun `text content is persisted as queued scan`() = runTest {
+    fun `text content is persisted as queued scan and scheduled`() = runTest {
         val result = useCase(SharedContent.Text("Breaking: all banks closed on Monday"))
 
         val scan = result.getOrThrow()
         assertEquals(ScanStatus.QUEUED, scan.status)
         assertEquals(MediaType.TEXT, scan.mediaType)
         assertEquals(1, repository.scans.value.size)
+        assertEquals(listOf(scan.id), scheduler.scheduled)
     }
 
     @Test
-    fun `blank text is rejected without touching the repository`() = runTest {
+    fun `blank text is rejected without touching repository or scheduler`() = runTest {
         val result = useCase(SharedContent.Text("   "))
 
         assertIs<IngestException.EmptyText>(result.exceptionOrNull())
         assertTrue(repository.scans.value.isEmpty())
+        assertTrue(scheduler.scheduled.isEmpty())
     }
 
     @Test
@@ -53,42 +53,12 @@ class IngestSharedContentUseCaseTest {
     }
 
     @Test
-    fun `repository failure surfaces as failed result`() = runTest {
+    fun `repository failure surfaces as failed result and schedules nothing`() = runTest {
         repository.failNextCreate = true
 
         val result = useCase(SharedContent.Text("some claim"))
 
         assertTrue(result.isFailure)
+        assertTrue(scheduler.scheduled.isEmpty())
     }
-}
-
-private class FakeScanRepository : ScanRepository {
-    val scans = MutableStateFlow<List<Scan>>(emptyList())
-    var failNextCreate = false
-
-    override suspend fun create(content: SharedContent): Scan {
-        if (failNextCreate) {
-            failNextCreate = false
-            error("storage unavailable")
-        }
-        val scan =
-            Scan(
-                id = "scan-${scans.value.size}",
-                mediaType =
-                when (content) {
-                    is SharedContent.Text -> MediaType.TEXT
-                    is SharedContent.Media -> MediaType.IMAGE
-                },
-                sourceText = (content as? SharedContent.Text)?.value,
-                localMediaPath = (content as? SharedContent.Media)?.localPath,
-                status = ScanStatus.QUEUED,
-                createdAtEpochMillis = 0L
-            )
-        scans.value += scan
-        return scan
-    }
-
-    override fun observeAll(): Flow<List<Scan>> = scans
-
-    override fun observe(id: String): Flow<Scan?> = scans.map { list -> list.find { it.id == id } }
 }

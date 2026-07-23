@@ -3,18 +3,21 @@ package app.truthguard.domain.usecase
 import app.truthguard.domain.model.IngestException
 import app.truthguard.domain.model.Scan
 import app.truthguard.domain.model.SharedContent
+import app.truthguard.domain.repository.AnalysisScheduler
 import app.truthguard.domain.repository.ScanRepository
 
 /**
- * Validates shared content and persists it as a queued scan.
- * Analysis itself is triggered separately so ingestion stays fast and never blocks the share flow.
+ * Validates shared content, persists it as a queued scan, and schedules its
+ * background analysis. Ingestion stays fast and never blocks the share flow.
  */
 class IngestSharedContentUseCase(
-    private val scanRepository: ScanRepository
+    private val scanRepository: ScanRepository,
+    private val analysisScheduler: AnalysisScheduler
 ) {
     suspend operator fun invoke(content: SharedContent): Result<Scan> {
         validate(content)?.let { return Result.failure(it) }
         return runCatching { scanRepository.create(content) }
+            .onSuccess { scan -> analysisScheduler.schedule(scan.id) }
     }
 
     private fun validate(content: SharedContent): IngestException? = when (content) {

@@ -10,7 +10,12 @@ from ..models import Evidence, EvidenceKind
 
 logger = logging.getLogger(__name__)
 
-_USER_AGENT = "TruthGuard/2.0 (fact-checking app; github.com/vipinvangara/truth_guard)"
+# Wikimedia's robot policy (https://w.wiki/4wJS) requires a descriptive UA with
+# contact information; requests without one get 403'd at the edge.
+_USER_AGENT = (
+    "TruthGuard/2.0 (https://github.com/vipinvangara/truth_guard; "
+    "vipin.vangara@gmail.com) python-httpx"
+)
 
 
 async def search(client: httpx.AsyncClient, settings: Settings, query: str) -> list[Evidence]:

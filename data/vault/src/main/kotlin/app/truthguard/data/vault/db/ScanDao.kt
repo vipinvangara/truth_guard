@@ -16,6 +16,9 @@ interface ScanDao {
     @Query("SELECT * FROM scans WHERE id = :id")
     fun observe(id: String): Flow<ScanEntity?>
 
+    @Query("SELECT * FROM scans WHERE id = :id")
+    suspend fun get(id: String): ScanEntity?
+
     @Query("UPDATE scans SET status = :status WHERE id = :id")
     suspend fun updateStatus(id: String, status: String)
 }

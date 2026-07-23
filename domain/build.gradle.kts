@@ -11,6 +11,7 @@ java {
 dependencies {
     implementation(libs.kotlinx.coroutines.core)
 
+    testImplementation(project(":core:testing"))
     testImplementation(kotlin("test"))
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

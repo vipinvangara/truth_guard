@@ -2,6 +2,7 @@ package app.truthguard.feature.intake
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,10 +14,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -51,7 +52,7 @@ import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun IngestScreen(viewModel: IngestViewModel = hiltViewModel()) {
+fun IngestScreen(onOpenScan: (String) -> Unit, viewModel: IngestViewModel = hiltViewModel()) {
     val scans by viewModel.scans.collectAsStateWithLifecycle()
     val event by viewModel.events.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -61,8 +62,8 @@ fun IngestScreen(viewModel: IngestViewModel = hiltViewModel()) {
     LaunchedEffect(event) {
         when (val current = event) {
             is IngestEvent.ScanQueued -> {
-                snackbarHostState.showSnackbar("Queued for verification")
                 viewModel.consumeEvent()
+                onOpenScan(current.scanId)
             }
 
             is IngestEvent.IngestFailed -> {
@@ -85,44 +86,15 @@ fun IngestScreen(viewModel: IngestViewModel = hiltViewModel()) {
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            OutlinedTextField(
-                value = pastedText,
-                onValueChange = { pastedText = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.intake_paste_hint)) },
-                trailingIcon = {
-                    IconButton(
-                        enabled = pastedText.isNotBlank(),
-                        onClick = {
-                            viewModel.checkPastedText(pastedText)
-                            pastedText = ""
-                        }
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Send,
-                            contentDescription = stringResource(R.string.intake_check_action)
-                        )
-                    }
+            ClaimInput(
+                text = pastedText,
+                onTextChange = { pastedText = it },
+                onSubmit = {
+                    viewModel.checkPastedText(pastedText)
+                    pastedText = ""
                 },
-                minLines = 2
+                onPasteFromClipboard = { clipboard.getText()?.let { pastedText = it.text } }
             )
-
-            // WhatsApp never offers the system share sheet for text messages, so
-            // copy-then-paste is the primary text flow; make it one tap.
-            if (pastedText.isBlank()) {
-                TextButton(
-                    onClick = { clipboard.getText()?.let { pastedText = it.text } },
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Icon(
-                        Icons.Filled.ContentPaste,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.intake_paste_from_clipboard))
-                }
-            }
 
             Spacer(Modifier.height(24.dp))
 
@@ -135,9 +107,52 @@ fun IngestScreen(viewModel: IngestViewModel = hiltViewModel()) {
                 )
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(scans, key = { it.id }) { scan -> ScanRow(scan) }
+                    items(scans, key = { it.id }) { scan ->
+                        ScanRow(scan, onClick = { onOpenScan(scan.id) })
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.ClaimInput(
+    text: String,
+    onTextChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    onPasteFromClipboard: () -> Unit
+) {
+    OutlinedTextField(
+        value = text,
+        onValueChange = onTextChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(stringResource(R.string.intake_paste_hint)) },
+        trailingIcon = {
+            IconButton(enabled = text.isNotBlank(), onClick = onSubmit) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = stringResource(R.string.intake_check_action)
+                )
+            }
+        },
+        minLines = 2
+    )
+
+    // WhatsApp never offers the system share sheet for text messages, so
+    // copy-then-paste is the primary text flow; make it one tap.
+    if (text.isBlank()) {
+        TextButton(
+            onClick = onPasteFromClipboard,
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            Icon(
+                Icons.Filled.ContentPaste,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.intake_paste_from_clipboard))
         }
     }
 }
@@ -162,8 +177,8 @@ private fun EmptyState() {
 }
 
 @Composable
-private fun ScanRow(scan: Scan) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun ScanRow(scan: Scan, onClick: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -172,7 +187,7 @@ private fun ScanRow(scan: Scan) {
                 imageVector =
                 when (scan.mediaType) {
                     MediaType.IMAGE -> Icons.Filled.Image
-                    else -> Icons.Filled.Notes
+                    else -> Icons.AutoMirrored.Filled.Notes
                 },
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),

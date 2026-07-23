@@ -11,7 +11,9 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     factcheck_api_key: str = ""
 
-    gemini_model: str = "gemini-2.5-flash"
+    # "-latest" alias tracks the current free-tier Flash model; pinned versions
+    # get retired for new accounts (gemini-2.5-flash 404s on keys created mid-2026).
+    gemini_model: str = "gemini-flash-latest"
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
     factcheck_base_url: str = "https://factchecktools.googleapis.com/v1alpha1"
     wikipedia_base_url: str = "https://en.wikipedia.org"

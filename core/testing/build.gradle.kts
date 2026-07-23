@@ -9,6 +9,8 @@ java {
 }
 
 dependencies {
+    implementation(project(":domain"))
+    implementation(libs.kotlinx.coroutines.core)
     api(libs.junit)
     api(libs.kotlinx.coroutines.test)
 }
