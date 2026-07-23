@@ -13,13 +13,16 @@ import logging
 import httpx
 
 from .config import Settings
-from .models import ClaimResult, Evidence, Stance, Verdict, VerifyResponse
+from .models import ClaimResult, Evidence, EvidenceKind, Stance, Verdict, VerifyResponse
 from .providers import factcheck, gemini, wikipedia
 from .providers.gemini import ExtractedClaim
 
 logger = logging.getLogger(__name__)
 
 _VALID_VERDICTS = {v.value for v in Verdict}
+# Cap on how many evidence items are shown for one claim, whether they came
+# from the LLM's citations or (when nothing was cited) the raw retrieval set.
+_MAX_EVIDENCE_SHOWN = 5
 
 
 async def verify_text(client: httpx.AsyncClient, settings: Settings, text: str) -> VerifyResponse:
@@ -51,8 +54,10 @@ async def verify_text(client: httpx.AsyncClient, settings: Settings, text: str) 
     results = await asyncio.gather(
         *(_verify_claim(client, settings, claim, llm_available) for claim in claims)
     )
-    limited = any(r.verdict == Verdict.UNVERIFIED and not llm_available for r in results)
-    return VerifyResponse(claims=list(results), limited=limited and not llm_available)
+    # _limited_result (used for every claim whenever llm_available is False)
+    # always sets UNVERIFIED, and `claims` is non-empty here, so "any claim is
+    # UNVERIFIED because the LLM was unavailable" reduces to just `not llm_available`.
+    return VerifyResponse(claims=list(results), limited=not llm_available)
 
 
 async def _verify_claim(
@@ -99,7 +104,7 @@ def _grounding_gate(claim: str, raw: dict, evidence: list[Evidence]) -> ClaimRes
 
     # Gate 2: a definitive verdict that contradicts every professional
     # fact-checker in evidence defers to the fact-checkers.
-    factcheck_stances = {e.stance for e in cited_evidence if e.kind.value == "FACTCHECK"}
+    factcheck_stances = {e.stance for e in cited_evidence if e.kind == EvidenceKind.FACTCHECK}
     if verdict == Verdict.TRUE and factcheck_stances == {Stance.REFUTES}:
         verdict = Verdict.FALSE
     elif verdict == Verdict.FALSE and factcheck_stances == {Stance.SUPPORTS}:
@@ -112,7 +117,7 @@ def _grounding_gate(claim: str, raw: dict, evidence: list[Evidence]) -> ClaimRes
         verdict=verdict,
         confidence=confidence,
         reasoning=reasoning,
-        evidence=cited_evidence if cited_evidence else evidence[:5],
+        evidence=cited_evidence if cited_evidence else evidence[:_MAX_EVIDENCE_SHOWN],
     )
 
 
@@ -126,5 +131,5 @@ def _limited_result(claim: str, evidence: list[Evidence]) -> ClaimResult:
             "Automated judgment is currently unavailable. The sources below were "
             "found for this claim — review them directly."
         ),
-        evidence=evidence[:5],
+        evidence=evidence[:_MAX_EVIDENCE_SHOWN],
     )

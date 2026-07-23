@@ -13,8 +13,4 @@ data class Scan(
     val translatedText: String? = null,
     val provenance: ImageProvenance? = null,
     val perceptualHash: String? = null
-) {
-    /** The text the verification pipeline should actually check, for either media type. */
-    val claimText: String?
-        get() = sourceText ?: translatedText ?: ocrText
-}
+)

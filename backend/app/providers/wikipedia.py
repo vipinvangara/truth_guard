@@ -38,6 +38,8 @@ async def search(client: httpx.AsyncClient, settings: Settings, query: str) -> l
         logger.warning("Wikipedia search failed: %s", exc)
         return []
 
+    # Re-slice defensively even though srlimit=3 above already asked for at
+    # most 3 — an API that ignored the param shouldn't blow the evidence budget.
     hits = resp.json().get("query", {}).get("search", [])[:3]
     evidence: list[Evidence] = []
     for hit in hits:

@@ -5,8 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class VerifyRequestDto(
-    val text: String,
-    val language: String? = null
+    val text: String
 )
 
 @Serializable

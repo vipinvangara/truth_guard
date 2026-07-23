@@ -24,6 +24,10 @@ class Stance(str, Enum):
 class EvidenceKind(str, Enum):
     FACTCHECK = "FACTCHECK"
     ENCYCLOPEDIC = "ENCYCLOPEDIC"
+    # No provider produces this yet (reserved for a future general web-search
+    # provider) — kept in sync with the Kotlin client's EvidenceKind, where it
+    # doubles as the safe fallback for any kind string the client doesn't
+    # recognize. Do not remove without checking data/verification's ResultMappers.kt.
     SEARCH = "SEARCH"
 
 
@@ -45,7 +49,6 @@ class ClaimResult(BaseModel):
 
 class VerifyRequest(BaseModel):
     text: str = Field(min_length=1, max_length=8000)
-    language: str | None = None
 
 
 class VerifyResponse(BaseModel):

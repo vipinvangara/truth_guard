@@ -25,16 +25,25 @@ class IngestViewModelTest {
 
     @Test
     fun `pasted text produces queued scan`() = runTest(mainDispatcherRule.testDispatcher) {
+        // Both flows must be subscribed before the action fires: a WhileSubscribed
+        // StateFlow's first-ever subscriber sees its cached initialValue on the
+        // very first emission, one tick before the upstream's current value is
+        // propagated — subscribing after acting would race that propagation.
         viewModel.scans.test {
             assertEquals(emptyList(), awaitItem())
 
-            viewModel.checkPastedText("Forwarded: miracle cure found")
+            viewModel.events.test {
+                assertEquals(null, awaitItem())
+
+                viewModel.checkPastedText("Forwarded: miracle cure found")
+
+                assertIs<IngestEvent.ScanQueued>(awaitItem())
+            }
 
             val scans = awaitItem()
             assertEquals(1, scans.size)
             assertEquals(ScanStatus.QUEUED, scans.first().status)
         }
-        assertIs<IngestEvent.ScanQueued>(viewModel.events.value)
     }
 
     @Test

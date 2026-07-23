@@ -44,7 +44,7 @@ async def _generate(client: httpx.AsyncClient, settings: Settings, prompt: str) 
                 "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
             },
-            timeout=30.0,
+            timeout=settings.gemini_timeout_seconds,
         )
         resp.raise_for_status()
     except httpx.HTTPError as exc:

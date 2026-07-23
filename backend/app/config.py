@@ -25,7 +25,11 @@ class Settings(BaseSettings):
     rate_limit_per_hour: int = 30
 
     max_claims_per_request: int = 3
+    # Fast REST lookups (Fact Check Tools, Wikipedia).
     provider_timeout_seconds: float = 8.0
+    # Gemini generation is slower than a plain REST lookup; give it its own budget
+    # rather than reusing provider_timeout_seconds and risking premature timeouts.
+    gemini_timeout_seconds: float = 30.0
 
     model_config = {"env_prefix": "TRUTHGUARD_"}
 

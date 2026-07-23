@@ -9,6 +9,7 @@ import app.truthguard.domain.model.SharedContent
 import app.truthguard.domain.repository.ScanRepository
 import app.truthguard.domain.repository.SettingsRepository
 import app.truthguard.domain.repository.VerificationRepository
+import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -90,7 +91,7 @@ class FakeVerificationRepository(
     override suspend fun verify(scanId: String, text: String): List<Claim> {
         if (failNext) {
             failNext = false
-            throw java.io.IOException("network down")
+            throw IOException("network down")
         }
         verifiedTexts += text
         return claimsFor(scanId, text)

@@ -70,6 +70,15 @@ why the share-back step matters as much as share-in.
       hallucinated-citation-rate. See
       [ARCHITECTURE.md §9](ARCHITECTURE.md#9-testing--ci). Nothing exists
       for this yet — greenfield.
+- [ ] 🟡 `ShareActivity`'s intent-parsing logic (`extractSharedContent`,
+      `getSharedUri`'s SDK-version branch) has zero test coverage — a 2026
+      code review flagged this as the app module's one real coverage gap.
+      Testing it properly needs either Robolectric (not currently set up in
+      this project) or an instrumented test + emulator CI step (also not set
+      up). Cheapest path: extract the pure `Intent` → `SharedContent`
+      decision logic out of the `Activity` into a small standalone class that
+      takes plain values (action/type/extras), so it's unit-testable without
+      Android framework mocking at all.
 
 ## Later (P4+, don't start without discussion — see ROADMAP.md)
 

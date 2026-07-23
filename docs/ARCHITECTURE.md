@@ -127,7 +127,7 @@ truthguard/
 | Async | Coroutines + Flow/StateFlow | Standard. |
 | Local DB | Room | Scan history, cached evidence. |
 | Preferences | DataStore (Proto for consent/settings) | Never SharedPreferences. |
-| Background work | WorkManager | Long analyses survive process death; share-intent kicks off a Worker so the user can leave and get a notification. |
+| Verification execution | Direct suspend call from the verdict screen's ViewModel (not WorkManager) | Verification is interactive work the user is actively waiting on, not deferrable background work. WorkManager was tried first and reverted — its battery-driven flexibility/backoff constraints held jobs for arbitrary periods with no visibility into why. See [ADR 0004](decisions/0004-drop-workmanager-for-verification.md). |
 | Networking | Retrofit + OkHttp + Kotlinx Serialization | Timeouts, retry-with-backoff on idempotent GETs only, offline detection. |
 | OCR | **ML Kit Text Recognition v2** | Free, on-device, all devices, excellent Latin + Devanagari/Tamil/etc. script support — critical for Indian-language forwards. |
 | Language ID / translation | ML Kit Language ID + on-device Translate | Free, on-device; lets the pipeline normalize claims to English for evidence search while preserving the original. |
@@ -140,7 +140,7 @@ truthguard/
 
 `AndroidManifest.xml` intent filters on a dedicated `ShareActivity`:
 - `ACTION_SEND` / `ACTION_SEND_MULTIPLE` for `text/plain` and `image/*` (v1), `video/*`, `audio/*` (declared later when supported — never declare what we can't handle).
-- `ShareActivity` is a thin trampoline: persist the shared content to app-private storage (WhatsApp URIs are transient permissions), enqueue an `AnalysisWorker`, route into the main task's ingest screen.
+- `ShareActivity` is a thin trampoline: persist the shared content to app-private storage (WhatsApp URIs are transient permissions), ingest it as a queued scan, route into the main task's ingest screen. Verification itself runs later, directly from the verdict screen (see §5).
 - Also register as a **process-text** target (`ACTION_PROCESS_TEXT`) so selected text anywhere can be checked without leaving the app the user is in.
 
 No runtime permissions needed for the core flow (shared content arrives via URI grants). Camera permission only if/when the user taps the in-app camera capture — requested contextually with an explanation of why it is needed.
@@ -153,7 +153,7 @@ Six stages, one implementation each, every stage producing typed results with ex
 
 ```mermaid
 sequenceDiagram
-    participant W as AnalysisWorker
+    participant W as VerdictViewModel
     participant EX as 1. Extract
     participant CL as 2. Claim detection
     participant EV as 3. Evidence retrieval
