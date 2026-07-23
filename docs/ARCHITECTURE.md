@@ -63,26 +63,26 @@ Everything in v1 exists to serve this loop. The **share-back step matters as muc
 ```mermaid
 flowchart TB
     subgraph Device["Android App (Kotlin + Compose)"]
-        Share[Share-target intake\nACTION_SEND] --> Ingest[Ingest & media store]
-        Ingest --> OnDevice["On-device extraction\n• ML Kit OCR\n• ML Kit language ID + translate\n• EXIF / C2PA read\n• pHash\n• (device-gated) Gemini Nano\n  image description"]
-        OnDevice --> Consent{User consent:\nsend claim text\nto cloud?}
-        Consent -->|yes| Pipeline[Verification pipeline]
-        Consent -->|no| LocalOnly[Local-only verdict:\nprovenance + heuristics,\nclearly labeled limited]
-        Pipeline --> Verdict[Verdict screen + share card]
-        Verdict --> Vault[(Room DB\nscan history)]
+        Share["Share-target intake<br/>ACTION_SEND"] --> Ingest["Ingest and media store"]
+        Ingest --> OnDevice["On-device extraction:<br/>ML Kit OCR, language ID + translate,<br/>EXIF / C2PA read, pHash,<br/>device-gated Gemini Nano image description"]
+        OnDevice --> Consent{"User consent:<br/>send claim text<br/>to cloud?"}
+        Consent -->|yes| Pipeline["Verification pipeline"]
+        Consent -->|no| LocalOnly["Local-only verdict:<br/>provenance + heuristics,<br/>clearly labeled limited"]
+        Pipeline --> Verdict["Verdict screen + share card"]
+        Verdict --> Vault[("Room DB<br/>scan history")]
     end
 
     subgraph Backend["TruthGuard Backend (FastAPI on Cloud Run, scale-to-zero)"]
-        API[REST API\nauth + rate limiting + caching]
-        API --> FactCheck[Google Fact Check\nTools API - free]
-        API --> Wiki[Wikipedia / Wikidata\nREST - free]
-        API --> ClaimB[ClaimBuster\ncheck-worthiness - free]
-        API --> Search[Web search\nBrave free tier / SearXNG]
-        API --> LLMFree[Gemini Flash\nfree tier - server key]
-        API --> LLMPaid[Gemini paid tier\nPremium lane]
+        API["REST API<br/>auth + rate limiting + caching"]
+        API --> FactCheck["Google Fact Check<br/>Tools API - free"]
+        API --> Wiki["Wikipedia / Wikidata<br/>REST - free"]
+        API --> ClaimB["ClaimBuster<br/>check-worthiness - free"]
+        API --> Search["Web search<br/>Brave free tier / SearXNG"]
+        API --> LLMFree["Gemini Flash<br/>free tier - server key"]
+        API --> LLMPaid["Gemini paid tier<br/>Premium lane"]
     end
 
-    Pipeline -->|claim text + extracted\nfacts only, never raw media\nby default| API
+    Pipeline -->|"claim text + extracted facts only,<br/>never raw media by default"| API
 ```
 
 **Key privacy stance**: raw media never leaves the device by default. On-device extraction turns media into *text* (OCR output, image description, metadata facts); only that text goes to the cloud, and only with a clear, once-per-install consent (re-surfaced contextually). Premium users can *opt in* to sending the image itself for cloud vision analysis.
@@ -162,15 +162,15 @@ sequenceDiagram
     participant RP as 6. Report
 
     W->>EX: shared content
-    Note over EX: On-device: OCR, lang ID/translate,<br/>EXIF/C2PA, pHash, image description
+    Note over EX: On-device OCR, lang ID/translate,<br/>EXIF/C2PA, pHash, image description
     EX->>CL: normalized text + facts
-    Note over CL: Split into atomic claims,<br/>score check-worthiness<br/>(ClaimBuster or LLM), pick top N
-    CL->>EV: claims (with user consent)
-    Note over EV: Parallel: Fact Check API,<br/>Wikipedia/Wikidata, web search.<br/>Tiered free → premium.
+    Note over CL: Split into atomic claims,<br/>score check-worthiness,<br/>pick top N
+    CL->>EV: claims, with user consent
+    Note over EV: In parallel - Fact Check API,<br/>Wikipedia/Wikidata, web search.<br/>Tiered free then premium.
     EV->>JG: claims + evidence set
-    Note over JG: LLM (Gemini Flash) judges each claim<br/>ONLY against retrieved evidence,<br/>structured JSON out: verdict, confidence,<br/>per-source stance, reasoning
+    Note over JG: LLM judges each claim ONLY<br/>against retrieved evidence.<br/>Structured JSON out - verdict,<br/>confidence, stance, reasoning
     JG->>GD: draft verdict
-    Note over GD: Gate: every citation must exist in the<br/>evidence set (no hallucinated sources);<br/>low evidence ⇒ verdict capped at<br/>"UNVERIFIED", never "FALSE"
+    Note over GD: Every citation must exist in<br/>the evidence set - no hallucinated<br/>sources. Low evidence caps the<br/>verdict at UNVERIFIED, never FALSE
     GD->>RP: final verdict
     Note over RP: Verdict card + evidence list +<br/>honest limitations text
 ```
