@@ -1,0 +1,25 @@
+build:
+  maxIssues: 0
+
+complexity:
+  LongMethod:
+    threshold: 80
+  LongParameterList:
+    functionThreshold: 8
+    constructorThreshold: 10
+    ignoreAnnotated: ["Composable", "Inject"]
+  TooManyFunctions:
+    thresholdInFiles: 25
+    thresholdInClasses: 25
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ["Composable"]
+
+style:
+  MagicNumber:
+    ignoreAnnotated: ["Composable", "Preview"]
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+  UnusedPrivateMember:
+    ignoreAnnotated: ["Preview"]

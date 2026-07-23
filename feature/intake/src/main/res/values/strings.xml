@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="intake_title">TruthGuard</string>
+    <string name="intake_paste_hint">Paste a message to fact-check</string>
+    <string name="intake_check_action">Check this claim</string>
+    <string name="intake_recent_header">Recent checks</string>
+    <string name="intake_empty_title">Nothing checked yet</string>
+    <string name="intake_empty_body">Share a suspicious message or image to TruthGuard from any app, or paste it above.</string>
+    <string name="intake_shared_media_label">Shared image</string>
+    <string name="status_queued">Queued</string>
+    <string name="status_analyzing">Analyzing…</string>
+    <string name="status_done">Done</string>
+    <string name="status_failed">Failed</string>
+    <string name="status_local_only">Limited (offline)</string>
+</resources>

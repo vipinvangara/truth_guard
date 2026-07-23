@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TruthGuard</string>
+    <string name="share_ingest_failed">Couldn\'t receive that content. Try sharing it again.</string>
+</resources>
