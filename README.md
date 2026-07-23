@@ -6,8 +6,10 @@ the claims it makes — grounded in fact-checkers and verifiable sources, never
 fabricated confidence.
 
 > The previous React Native/Expo prototype lives on the [`legacy`](../../tree/legacy)
-> branch. This branch is the native rebuild. The full design is in
-> [docs/](docs/) and the v2 architecture plan.
+> branch. This branch is the native rebuild. Full design:
+> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · phases:
+> [docs/ROADMAP.md](docs/ROADMAP.md) · key decisions:
+> [docs/decisions/](docs/decisions/).
 
 ## Status
 
@@ -65,9 +67,9 @@ or image to **TruthGuard** from another app.
 - No accounts, no analytics, no fabricated output: every number shown is computed,
   and "unverified" is an honest, first-class verdict.
 
-## Contributing / conventions
+## Contributing
 
-- ktlint + detekt run in CI with a zero-tolerance config (`config/detekt/detekt.yml`).
-- Tests accompany implementation; `domain` stays free of Android imports.
-- Room schema history is exported to `data/vault/schemas/` — commit it with any
-  database change.
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the
+workflow, and the project's ground rules (the short version: no fabricated
+output, honest verdicts, privacy by architecture, tests with every change).
+Start with issues labeled `good-first-issue`.
