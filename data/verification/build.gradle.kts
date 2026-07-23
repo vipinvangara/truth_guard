@@ -20,8 +20,12 @@ android {
 
     buildTypes {
         debug {
-            // Local backend via `adb reverse tcp:8000 tcp:8000`.
-            buildConfigField("String", "API_BASE_URL", "\"http://localhost:8000/\"")
+            // Local dev backend reached over the LAN. Override per machine with
+            // -PtruthguardApiBaseUrl=... ; adb reverse + localhost proved unreliable.
+            val devApiBaseUrl =
+                (project.findProperty("truthguardApiBaseUrl") as String?)
+                    ?: "http://10.0.0.240:8000/"
+            buildConfigField("String", "API_BASE_URL", "\"$devApiBaseUrl\"")
         }
         release {
             // Set to the Cloud Run URL at deploy time (P5).
@@ -43,14 +47,10 @@ dependencies {
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
-    implementation(libs.androidx.hilt.work)
-    ksp(libs.androidx.hilt.compiler)
 
-    implementation(libs.androidx.work.runtime)
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.okhttp)
-    debugImplementation(libs.okhttp.logging)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore)
     implementation(libs.kotlinx.coroutines.android)

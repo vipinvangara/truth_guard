@@ -1,9 +1,9 @@
 package app.truthguard.data.verification.di
 
 import app.truthguard.data.verification.BuildConfig
-import app.truthguard.data.verification.WorkManagerAnalysisScheduler
+import app.truthguard.data.verification.VerificationRepositoryImpl
 import app.truthguard.data.verification.network.VerifyApi
-import app.truthguard.domain.repository.AnalysisScheduler
+import app.truthguard.domain.repository.VerificationRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -21,7 +21,7 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 @InstallIn(SingletonComponent::class)
 internal abstract class VerificationModule {
     @Binds
-    abstract fun bindAnalysisScheduler(impl: WorkManagerAnalysisScheduler): AnalysisScheduler
+    abstract fun bindVerificationRepository(impl: VerificationRepositoryImpl): VerificationRepository
 
     companion object {
         // Reads are long because verification calls include LLM latency server-side.

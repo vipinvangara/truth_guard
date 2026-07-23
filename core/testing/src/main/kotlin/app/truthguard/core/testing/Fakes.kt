@@ -5,9 +5,9 @@ import app.truthguard.domain.model.MediaType
 import app.truthguard.domain.model.Scan
 import app.truthguard.domain.model.ScanStatus
 import app.truthguard.domain.model.SharedContent
-import app.truthguard.domain.repository.AnalysisScheduler
 import app.truthguard.domain.repository.ScanRepository
 import app.truthguard.domain.repository.SettingsRepository
+import app.truthguard.domain.repository.VerificationRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -52,19 +52,29 @@ class FakeScanRepository : ScanRepository {
     }
 }
 
-class FakeAnalysisScheduler : AnalysisScheduler {
-    val scheduled = mutableListOf<String>()
-
-    override fun schedule(scanId: String) {
-        scheduled += scanId
-    }
-}
-
 class FakeSettingsRepository(initialConsent: Boolean = false) : SettingsRepository {
     private val consent = MutableStateFlow(initialConsent)
     override val cloudConsentGranted: Flow<Boolean> = consent
 
+    override suspend fun isCloudConsentGranted(): Boolean = consent.value
+
     override suspend fun setCloudConsent(granted: Boolean) {
         consent.value = granted
+    }
+}
+
+class FakeVerificationRepository(
+    private val claimsFor: (scanId: String, text: String) -> List<Claim> = { _, _ -> emptyList() }
+) : VerificationRepository {
+    var failNext = false
+    val verifiedTexts = mutableListOf<String>()
+
+    override suspend fun verify(scanId: String, text: String): List<Claim> {
+        if (failNext) {
+            failNext = false
+            throw java.io.IOException("network down")
+        }
+        verifiedTexts += text
+        return claimsFor(scanId, text)
     }
 }

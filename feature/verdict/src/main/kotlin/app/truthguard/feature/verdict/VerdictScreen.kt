@@ -93,7 +93,7 @@ fun VerdictScreen(onBack: () -> Unit, viewModel: VerdictViewModel = hiltViewMode
                 ScanStatus.QUEUED, ScanStatus.EXTRACTING, ScanStatus.RETRIEVING, ScanStatus.JUDGING ->
                     AnalyzingState()
 
-                ScanStatus.LOCAL_ONLY -> LocalOnlyState(onEnable = viewModel::enableCloudAndRetry)
+                ScanStatus.LOCAL_ONLY -> LocalOnlyState(onEnable = viewModel::enableCloudAndVerify)
 
                 ScanStatus.FAILED -> FailedState(onRetry = viewModel::retry)
 

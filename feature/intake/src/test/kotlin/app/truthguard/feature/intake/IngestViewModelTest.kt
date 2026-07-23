@@ -1,7 +1,6 @@
 package app.truthguard.feature.intake
 
 import app.cash.turbine.test
-import app.truthguard.core.testing.FakeAnalysisScheduler
 import app.truthguard.core.testing.FakeScanRepository
 import app.truthguard.core.testing.MainDispatcherRule
 import app.truthguard.domain.model.ScanStatus
@@ -9,7 +8,6 @@ import app.truthguard.domain.usecase.IngestSharedContentUseCase
 import app.truthguard.domain.usecase.ObserveScansUseCase
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
@@ -19,15 +17,14 @@ class IngestViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val repository = FakeScanRepository()
-    private val scheduler = FakeAnalysisScheduler()
     private val viewModel =
         IngestViewModel(
             observeScans = ObserveScansUseCase(repository),
-            ingestSharedContent = IngestSharedContentUseCase(repository, scheduler)
+            ingestSharedContent = IngestSharedContentUseCase(repository)
         )
 
     @Test
-    fun `pasted text produces queued and scheduled scan`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `pasted text produces queued scan`() = runTest(mainDispatcherRule.testDispatcher) {
         viewModel.scans.test {
             assertEquals(emptyList(), awaitItem())
 
@@ -36,7 +33,6 @@ class IngestViewModelTest {
             val scans = awaitItem()
             assertEquals(1, scans.size)
             assertEquals(ScanStatus.QUEUED, scans.first().status)
-            assertEquals(listOf(scans.first().id), scheduler.scheduled)
         }
         assertIs<IngestEvent.ScanQueued>(viewModel.events.value)
     }
@@ -53,7 +49,6 @@ class IngestViewModelTest {
         viewModel.scans.test {
             assertEquals(emptyList(), awaitItem())
         }
-        assertTrue(scheduler.scheduled.isEmpty())
     }
 
     @Test
