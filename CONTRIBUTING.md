@@ -42,8 +42,9 @@ run means a green PR build.
 
 ## Ground rules (project-specific)
 
-These come from the project's history — the previous prototype failed because
-it violated them (see `legacy` branch for the cautionary tale):
+These come from the project's history — an earlier prototype failed because
+it violated them (see [ADR 0001](docs/decisions/0001-native-kotlin-rebuild.md)
+for the cautionary tale):
 
 1. **No fabricated output, ever.** Every number, score, or status shown to a
    user must trace to a real computation. No `Math.random()` telemetry, no

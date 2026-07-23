@@ -5,9 +5,7 @@ message or image from any app into TruthGuard and get an honest, cited verdict o
 the claims it makes — grounded in fact-checkers and verifiable sources, never
 fabricated confidence.
 
-> The previous React Native/Expo prototype lives on the [`legacy`](../../tree/legacy)
-> branch. This branch is the native rebuild. Full design:
-> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · phases:
+> Full design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · phases:
 > [docs/ROADMAP.md](docs/ROADMAP.md) · key decisions:
 > [docs/decisions/](docs/decisions/).
 

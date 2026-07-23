@@ -5,7 +5,7 @@
 **Status**: Adopted 2026-07-23. Phase P0 (skeleton + share target) is built; see [ROADMAP.md](ROADMAP.md) for current phase.
 
 **Foundational decisions** (rationale in [decisions/](decisions/)):
-1. **Native Kotlin + Jetpack Compose** — full rebuild; the Expo prototype is archived on the `legacy` branch.
+1. **Native Kotlin + Jetpack Compose** — full rebuild, replacing an earlier Expo/React Native prototype (see [ADR 0001](decisions/0001-native-kotlin-rebuild.md)).
 2. **Hybrid inference** — on-device for cheap/private steps, cloud for reasoning & evidence.
 3. **Free-tier-first, Premium lane alongside** — free public APIs as the default path; paid APIs (Gemini paid tier, etc.) as a parallel "Premium" quality tier behind the same interfaces.
 4. `minSdk 26`; English UI for v1 (the pipeline handles non-English *content* from day one; localized UI is a planned enhancement).

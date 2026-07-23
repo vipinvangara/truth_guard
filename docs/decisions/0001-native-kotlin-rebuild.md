@@ -14,8 +14,8 @@ project's engineering standards target production-quality native Android.
 ## Decision
 
 Rebuild as a native Kotlin + Jetpack Compose app (multi-module Clean
-Architecture). The Expo prototype is preserved unmodified on the `legacy`
-branch; `master` hosts the rebuild.
+Architecture). `master` hosts the rebuild; the Expo prototype was retired
+once the native rebuild reached feature parity with it.
 
 ## Consequences
 
