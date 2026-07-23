@@ -1,6 +1,7 @@
 package app.truthguard.domain.repository
 
 import app.truthguard.domain.model.Claim
+import app.truthguard.domain.model.ImageAnalysis
 import app.truthguard.domain.model.Scan
 import app.truthguard.domain.model.ScanStatus
 import app.truthguard.domain.model.SharedContent
@@ -19,6 +20,9 @@ interface ScanRepository {
     suspend fun getScan(id: String): Scan?
 
     suspend fun updateStatus(id: String, status: ScanStatus)
+
+    /** Persists on-device image-extraction results (OCR, translation, provenance, hash). */
+    suspend fun storeImageAnalysis(id: String, analysis: ImageAnalysis)
 
     /** Replaces any previous results for the scan with the given claims. */
     suspend fun storeClaims(scanId: String, claims: List<Claim>)

@@ -1,6 +1,7 @@
 package app.truthguard.core.testing
 
 import app.truthguard.domain.model.Claim
+import app.truthguard.domain.model.ImageAnalysis
 import app.truthguard.domain.model.MediaType
 import app.truthguard.domain.model.Scan
 import app.truthguard.domain.model.ScanStatus
@@ -45,6 +46,23 @@ class FakeScanRepository : ScanRepository {
 
     override suspend fun updateStatus(id: String, status: ScanStatus) {
         scans.value = scans.value.map { if (it.id == id) it.copy(status = status) else it }
+    }
+
+    override suspend fun storeImageAnalysis(id: String, analysis: ImageAnalysis) {
+        scans.value =
+            scans.value.map {
+                if (it.id == id) {
+                    it.copy(
+                        ocrText = analysis.ocrText,
+                        detectedLanguage = analysis.detectedLanguage,
+                        translatedText = analysis.translatedText,
+                        provenance = analysis.provenance,
+                        perceptualHash = analysis.perceptualHash
+                    )
+                } else {
+                    it
+                }
+            }
     }
 
     override suspend fun storeClaims(scanId: String, claims: List<Claim>) {

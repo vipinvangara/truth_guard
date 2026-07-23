@@ -227,6 +227,7 @@ private fun StatusBadge(status: ScanStatus) {
             ScanStatus.DONE -> stringResource(R.string.status_done)
             ScanStatus.FAILED -> stringResource(R.string.status_failed)
             ScanStatus.LOCAL_ONLY -> stringResource(R.string.status_local_only)
+            ScanStatus.NO_CLAIM_FOUND -> stringResource(R.string.status_no_claim_found)
         }
     Text(
         text = label,

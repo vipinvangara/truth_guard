@@ -1,10 +1,12 @@
 package app.truthguard.data.vault
 
 import app.truthguard.data.vault.db.ScanEntity
+import app.truthguard.domain.model.ImageProvenance
 import app.truthguard.domain.model.MediaType
 import app.truthguard.domain.model.Scan
 import app.truthguard.domain.model.ScanStatus
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import org.junit.Test
 
 class ScanMappersTest {
@@ -21,6 +23,32 @@ class ScanMappersTest {
     @Test
     fun `domain to entity and back is lossless`() {
         assertEquals(domain, domain.toEntity().toDomain())
+    }
+
+    @Test
+    fun `unanalyzed image scan has no provenance`() {
+        assertNull(domain.toEntity().toDomain().provenance)
+    }
+
+    @Test
+    fun `image analysis fields round-trip including provenance`() {
+        val analyzed =
+            domain.copy(
+                ocrText = "text on the meme",
+                detectedLanguage = "en",
+                translatedText = null,
+                provenance =
+                ImageProvenance(
+                    cameraMake = "Samsung",
+                    cameraModel = "Galaxy S24",
+                    captureDateUtc = "2026:01:01 12:00:00",
+                    hasGpsData = true,
+                    softwareTag = null
+                ),
+                perceptualHash = "deadbeefcafef00d"
+            )
+
+        assertEquals(analyzed, analyzed.toEntity().toDomain())
     }
 
     @Test

@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -42,8 +43,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.truthguard.core.designsystem.VerdictColors
 import app.truthguard.domain.model.Claim
 import app.truthguard.domain.model.Evidence
+import app.truthguard.domain.model.ImageProvenance
+import app.truthguard.domain.model.MediaType
+import app.truthguard.domain.model.Scan
 import app.truthguard.domain.model.ScanStatus
 import app.truthguard.domain.model.Verdict
+import coil.compose.AsyncImage
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,58 +72,185 @@ fun VerdictScreen(onBack: () -> Unit, viewModel: VerdictViewModel = hiltViewMode
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-        ) {
-            if (scan == null) {
-                Text(stringResource(R.string.verdict_not_found))
-                return@Column
-            }
+        if (scan == null) {
+            Text(
+                text = stringResource(R.string.verdict_not_found),
+                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)
+            )
+            return@Scaffold
+        }
 
-            scan.sourceText?.let { source ->
-                Text(
-                    text = source,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 4
-                )
-                Spacer(Modifier.height(16.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(16.dp))
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item { Spacer(Modifier.height(4.dp)) }
+
+            if (scan.mediaType == MediaType.IMAGE) {
+                scan.localMediaPath?.let { path -> item { ImageThumbnail(path) } }
+                scan.ocrText?.let { ocrText ->
+                    if (ocrText.isNotBlank()) item { ExtractedTextCard(scan) }
+                    item { ProvenanceCard(scan.provenance) }
+                }
+            } else {
+                scan.sourceText?.let { source ->
+                    item {
+                        Text(
+                            text = source,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    item { HorizontalDivider() }
+                }
             }
 
             when (scan.status) {
-                ScanStatus.QUEUED, ScanStatus.EXTRACTING, ScanStatus.RETRIEVING, ScanStatus.JUDGING ->
-                    AnalyzingState()
+                ScanStatus.QUEUED, ScanStatus.RETRIEVING, ScanStatus.JUDGING ->
+                    item { AnalyzingState(stringResource(R.string.verdict_analyzing)) }
 
-                ScanStatus.LOCAL_ONLY -> LocalOnlyState(onEnable = viewModel::enableCloudAndVerify)
+                ScanStatus.EXTRACTING ->
+                    item { AnalyzingState(stringResource(R.string.verdict_extracting)) }
 
-                ScanStatus.FAILED -> FailedState(onRetry = viewModel::retry)
+                ScanStatus.NO_CLAIM_FOUND -> item { NoClaimFoundState() }
+
+                ScanStatus.LOCAL_ONLY -> item { LocalOnlyState(onEnable = viewModel::enableCloudAndVerify) }
+
+                ScanStatus.FAILED -> item { FailedState(onRetry = viewModel::retry) }
 
                 ScanStatus.DONE ->
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(detail.claims, key = { it.id }) { claim -> ClaimCard(claim) }
-                    }
+                    items(detail.claims, key = { it.id }) { claim -> ClaimCard(claim) }
+            }
+
+            item { Spacer(Modifier.height(8.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun ImageThumbnail(localMediaPath: String) {
+    AsyncImage(
+        model = File(localMediaPath),
+        contentDescription = stringResource(R.string.verdict_shared_image),
+        contentScale = ContentScale.FillWidth,
+        modifier =
+        Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+    )
+}
+
+@Composable
+private fun ExtractedTextCard(scan: Scan) {
+    val showsTranslation = scan.translatedText != null && scan.detectedLanguage != "en"
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.verdict_text_found_title),
+                style = MaterialTheme.typography.labelLarge
+            )
+            Spacer(Modifier.height(8.dp))
+            if (showsTranslation) {
+                Text(
+                    text =
+                    stringResource(
+                        R.string.verdict_original_text,
+                        scan.detectedLanguage.orEmpty()
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(text = scan.ocrText.orEmpty(), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.verdict_translated_text),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(text = scan.translatedText.orEmpty(), style = MaterialTheme.typography.bodyMedium)
+            } else {
+                Text(text = scan.ocrText.orEmpty(), style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
 }
 
 @Composable
-private fun AnalyzingState() {
+private fun ProvenanceCard(provenance: ImageProvenance?) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.verdict_provenance_title),
+                style = MaterialTheme.typography.labelLarge
+            )
+            Spacer(Modifier.height(8.dp))
+            if (provenance == null || provenance.hasNoMetadata) {
+                Text(
+                    text = stringResource(R.string.verdict_provenance_none),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                val camera = listOfNotNull(provenance.cameraMake, provenance.cameraModel).joinToString(" ")
+                if (camera.isNotBlank()) ProvenanceRow(stringResource(R.string.verdict_provenance_camera), camera)
+                provenance.captureDateUtc?.let {
+                    ProvenanceRow(stringResource(R.string.verdict_provenance_captured), it)
+                }
+                if (provenance.hasGpsData) {
+                    ProvenanceRow(
+                        stringResource(R.string.verdict_provenance_location_label),
+                        stringResource(R.string.verdict_provenance_location_present)
+                    )
+                }
+                provenance.softwareTag?.let {
+                    ProvenanceRow(stringResource(R.string.verdict_provenance_software), it)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProvenanceRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(96.dp)
+        )
+        Text(text = value, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun AnalyzingState(label: String) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         CircularProgressIndicator()
         Spacer(Modifier.height(16.dp))
-        Text(
-            text = stringResource(R.string.verdict_analyzing),
-            style = MaterialTheme.typography.bodyMedium
-        )
+        Text(text = label, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun NoClaimFoundState() {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.verdict_no_claim_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.verdict_no_claim_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -174,7 +307,8 @@ private fun ClaimCard(claim: Claim) {
                 Spacer(Modifier.width(8.dp))
                 if (claim.confidence > 0f) {
                     Text(
-                        text = stringResource(
+                        text =
+                        stringResource(
                             R.string.verdict_confidence,
                             (claim.confidence * 100).toInt()
                         ),
@@ -219,7 +353,8 @@ private fun VerdictChip(verdict: Verdict) {
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.Bold,
         color = Color.White,
-        modifier = Modifier
+        modifier =
+        Modifier
             .background(color, RoundedCornerShape(6.dp))
             .padding(horizontal = 10.dp, vertical = 4.dp)
     )
@@ -229,7 +364,8 @@ private fun VerdictChip(verdict: Verdict) {
 private fun EvidenceRow(evidence: Evidence) {
     val uriHandler = LocalUriHandler.current
     Row(
-        modifier = Modifier
+        modifier =
+        Modifier
             .fillMaxWidth()
             .clickable { uriHandler.openUri(evidence.url) }
             .padding(vertical = 6.dp),

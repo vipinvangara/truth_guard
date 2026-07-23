@@ -10,6 +10,8 @@ import app.truthguard.data.vault.db.ScanEntity
 import app.truthguard.domain.model.Claim
 import app.truthguard.domain.model.Evidence
 import app.truthguard.domain.model.EvidenceKind
+import app.truthguard.domain.model.ImageAnalysis
+import app.truthguard.domain.model.ImageProvenance
 import app.truthguard.domain.model.MediaType
 import app.truthguard.domain.model.ScanStatus
 import app.truthguard.domain.model.SharedContent
@@ -93,6 +95,35 @@ class ScanRepositoryImplTest {
 
         assertEquals(listOf(claim), repository.observeClaims(scan.id).first())
     }
+
+    @Test
+    fun `image analysis is persisted and round-trips through the domain model`() = runTest {
+        val scan = repository.create(SharedContent.Media("/data/img.jpg", "image/jpeg"))
+        val analysis =
+            ImageAnalysis(
+                ocrText = "raw text",
+                detectedLanguage = "hi",
+                translatedText = "translated text",
+                provenance =
+                ImageProvenance(
+                    cameraMake = "Google",
+                    cameraModel = "Pixel 8",
+                    captureDateUtc = "2026:01:01 00:00:00",
+                    hasGpsData = true,
+                    softwareTag = "HDR+"
+                ),
+                perceptualHash = "abc123"
+            )
+
+        repository.storeImageAnalysis(scan.id, analysis)
+        val stored = repository.getScan(scan.id)
+
+        assertEquals("raw text", stored?.ocrText)
+        assertEquals("translated text", stored?.translatedText)
+        assertEquals("hi", stored?.detectedLanguage)
+        assertEquals(analysis.provenance, stored?.provenance)
+        assertEquals("abc123", stored?.perceptualHash)
+    }
 }
 
 private class FakeScanDao : ScanDao {
@@ -112,6 +143,10 @@ private class FakeScanDao : ScanDao {
 
     override suspend fun updateStatus(id: String, status: String) {
         state.value = state.value.map { if (it.id == id) it.copy(status = status) else it }
+    }
+
+    override suspend fun update(scan: ScanEntity) {
+        state.value = state.value.map { if (it.id == scan.id) scan else it }
     }
 }
 

@@ -7,6 +7,7 @@ the grounding gate in pipeline.py enforces it mechanically afterwards.
 
 import json
 import logging
+from dataclasses import dataclass
 
 import httpx
 
@@ -18,6 +19,18 @@ logger = logging.getLogger(__name__)
 
 class GeminiError(Exception):
     """Raised when Gemini is unavailable or returns an unusable response."""
+
+
+@dataclass
+class ExtractedClaim:
+    text: str
+    """Short, keyword-only query for evidence search — never the full claim
+    sentence. Long natural-language queries make Wikipedia/search-engine
+    relevance ranking noisy (a long sentence full of generic words like
+    "reported", "major", "between" can outrank on tangentially-matching
+    articles). Keeping search decoupled from the claim text keeps retrieval
+    precise while judgment still sees the full claim."""
+    search_query: str
 
 
 async def _generate(client: httpx.AsyncClient, settings: Settings, prompt: str) -> str:
@@ -45,17 +58,22 @@ async def _generate(client: httpx.AsyncClient, settings: Settings, prompt: str) 
 
 async def extract_claims(
     client: httpx.AsyncClient, settings: Settings, text: str
-) -> list[str]:
+) -> list[ExtractedClaim]:
     """Split a forwarded message into up to N check-worthy factual claims."""
     prompt = (
         "You extract check-worthy factual claims from forwarded messages.\n"
         "A check-worthy claim asserts something about the world that could be "
         "verified or refuted with evidence. Opinions, greetings, and questions "
         "are not check-worthy.\n\n"
-        f"Return JSON only: {{\"claims\": [\"...\"]}} with at most "
-        f"{settings.max_claims_per_request} claims, each a single self-contained "
-        "sentence in English (translate if needed). If nothing is check-worthy, "
-        "return {\"claims\": []}.\n\n"
+        "For each claim, also produce a short search query (3-6 keywords: names, "
+        "places, organizations, numbers, dates) suitable for a search engine or "
+        "encyclopedia lookup. Do NOT reuse the full claim sentence as the query — "
+        "long natural-language sentences return noisy, irrelevant search results. "
+        "Keep only the specific terms that would actually distinguish this claim.\n\n"
+        'Return JSON only: {"claims": [{"text": "...", "search_query": "..."}]} '
+        f"with at most {settings.max_claims_per_request} claims, each text a "
+        "single self-contained sentence in English (translate if needed). If "
+        'nothing is check-worthy, return {"claims": []}.\n\n'
         f"Message:\n<<<\n{text}\n>>>"
     )
     raw = await _generate(client, settings, prompt)
@@ -63,9 +81,17 @@ async def extract_claims(
         claims = json.loads(raw).get("claims", [])
     except json.JSONDecodeError as exc:
         raise GeminiError("Claim extraction returned invalid JSON") from exc
-    return [c.strip() for c in claims if isinstance(c, str) and c.strip()][
-        : settings.max_claims_per_request
-    ]
+
+    extracted = []
+    for c in claims:
+        if not isinstance(c, dict):
+            continue
+        claim_text = str(c.get("text", "")).strip()
+        if not claim_text:
+            continue
+        query = str(c.get("search_query", "")).strip() or claim_text
+        extracted.append(ExtractedClaim(text=claim_text, search_query=query))
+    return extracted[: settings.max_claims_per_request]
 
 
 async def judge_claim(

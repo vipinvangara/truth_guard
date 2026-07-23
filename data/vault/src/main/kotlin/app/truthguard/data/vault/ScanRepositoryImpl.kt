@@ -4,6 +4,7 @@ import app.truthguard.core.common.TimeProvider
 import app.truthguard.data.vault.db.ClaimDao
 import app.truthguard.data.vault.db.ScanDao
 import app.truthguard.domain.model.Claim
+import app.truthguard.domain.model.ImageAnalysis
 import app.truthguard.domain.model.MediaType
 import app.truthguard.domain.model.Scan
 import app.truthguard.domain.model.ScanStatus
@@ -52,6 +53,23 @@ constructor(
 
     override suspend fun updateStatus(id: String, status: ScanStatus) {
         scanDao.updateStatus(id, status.name)
+    }
+
+    override suspend fun storeImageAnalysis(id: String, analysis: ImageAnalysis) {
+        val existing = scanDao.get(id) ?: return
+        scanDao.update(
+            existing.copy(
+                ocrText = analysis.ocrText,
+                detectedLanguage = analysis.detectedLanguage,
+                translatedText = analysis.translatedText,
+                provenanceCameraMake = analysis.provenance.cameraMake,
+                provenanceCameraModel = analysis.provenance.cameraModel,
+                provenanceCaptureDateUtc = analysis.provenance.captureDateUtc,
+                provenanceHasGps = analysis.provenance.hasGpsData,
+                provenanceSoftwareTag = analysis.provenance.softwareTag,
+                perceptualHash = analysis.perceptualHash
+            )
+        )
     }
 
     override suspend fun storeClaims(scanId: String, claims: List<Claim>) {

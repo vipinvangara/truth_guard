@@ -1,5 +1,6 @@
 package app.truthguard.di
 
+import app.truthguard.domain.repository.ImageAnalyzer
 import app.truthguard.domain.repository.ScanRepository
 import app.truthguard.domain.repository.SettingsRepository
 import app.truthguard.domain.repository.VerificationRepository
@@ -32,8 +33,9 @@ object UseCaseModule {
     fun provideVerifyScanUseCase(
         scanRepository: ScanRepository,
         settingsRepository: SettingsRepository,
-        verificationRepository: VerificationRepository
-    ): VerifyScanUseCase = VerifyScanUseCase(scanRepository, settingsRepository, verificationRepository)
+        verificationRepository: VerificationRepository,
+        imageAnalyzer: ImageAnalyzer
+    ): VerifyScanUseCase = VerifyScanUseCase(scanRepository, settingsRepository, verificationRepository, imageAnalyzer)
 
     @Provides
     fun provideEnableCloudVerificationUseCase(settingsRepository: SettingsRepository): EnableCloudVerificationUseCase =

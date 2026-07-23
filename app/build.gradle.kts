@@ -49,6 +49,7 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":data:vault"))
     implementation(project(":data:verification"))
+    implementation(project(":data:extraction"))
     implementation(project(":feature:intake"))
     implementation(project(":feature:verdict"))
 

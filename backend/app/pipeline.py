@@ -15,6 +15,7 @@ import httpx
 from .config import Settings
 from .models import ClaimResult, Evidence, Stance, Verdict, VerifyResponse
 from .providers import factcheck, gemini, wikipedia
+from .providers.gemini import ExtractedClaim
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,10 @@ async def verify_text(client: httpx.AsyncClient, settings: Settings, text: str) 
         llm_available = True
     except gemini.GeminiError as exc:
         logger.info("Claim extraction unavailable (%s); treating text as one claim", exc)
-        claims = [text.strip()[:500]]
+        # No LLM to shorten the query; the raw text is the best we have, and the
+        # keyless path already degrades to UNVERIFIED-with-evidence-for-review.
+        fallback_text = text.strip()[:500]
+        claims = [ExtractedClaim(text=fallback_text, search_query=fallback_text)]
         llm_available = False
 
     if not claims:
@@ -52,24 +56,24 @@ async def verify_text(client: httpx.AsyncClient, settings: Settings, text: str) 
 
 
 async def _verify_claim(
-    client: httpx.AsyncClient, settings: Settings, claim: str, llm_available: bool
+    client: httpx.AsyncClient, settings: Settings, claim: ExtractedClaim, llm_available: bool
 ) -> ClaimResult:
     factcheck_ev, wiki_ev = await asyncio.gather(
-        factcheck.search(client, settings, claim),
-        wikipedia.search(client, settings, claim),
+        factcheck.search(client, settings, claim.search_query),
+        wikipedia.search(client, settings, claim.search_query),
     )
     evidence = factcheck_ev + wiki_ev
 
     if not llm_available:
-        return _limited_result(claim, evidence)
+        return _limited_result(claim.text, evidence)
 
     try:
-        raw = await gemini.judge_claim(client, settings, claim, evidence)
+        raw = await gemini.judge_claim(client, settings, claim.text, evidence)
     except gemini.GeminiError as exc:
         logger.warning("Judgment unavailable for claim: %s", exc)
-        return _limited_result(claim, evidence)
+        return _limited_result(claim.text, evidence)
 
-    return _grounding_gate(claim, raw, evidence)
+    return _grounding_gate(claim.text, raw, evidence)
 
 
 def _grounding_gate(claim: str, raw: dict, evidence: list[Evidence]) -> ClaimResult:

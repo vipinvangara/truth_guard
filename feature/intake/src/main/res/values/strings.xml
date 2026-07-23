@@ -13,4 +13,5 @@
     <string name="status_done">Done</string>
     <string name="status_failed">Failed</string>
     <string name="status_local_only">Limited (offline)</string>
+    <string name="status_no_claim_found">No claim found</string>
 </resources>

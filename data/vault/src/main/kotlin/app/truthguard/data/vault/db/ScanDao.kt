@@ -3,12 +3,16 @@ package app.truthguard.data.vault.db
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ScanDao {
     @Insert
     suspend fun insert(scan: ScanEntity)
+
+    @Update
+    suspend fun update(scan: ScanEntity)
 
     @Query("SELECT * FROM scans ORDER BY createdAtEpochMillis DESC")
     fun observeAll(): Flow<List<ScanEntity>>
