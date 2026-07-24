@@ -20,6 +20,13 @@ backend/.venv/
 __pycache__/
 *.pyc
 verify_cache.db
+backend/.env
+
+# Terraform
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.backup
+infra/*.tfplan
 
 # OS
 .DS_Store

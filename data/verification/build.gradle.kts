@@ -28,8 +28,11 @@ android {
             buildConfigField("String", "API_BASE_URL", "\"$devApiBaseUrl\"")
         }
         release {
-            // Set to the Cloud Run URL at deploy time (P5).
-            buildConfigField("String", "API_BASE_URL", "\"https://not-yet-deployed.invalid/\"")
+            buildConfigField(
+                "String",
+                "API_BASE_URL",
+                "\"https://truthguard-verify-648011521289.us-central1.run.app/\""
+            )
         }
     }
 

@@ -31,7 +31,11 @@ class Settings(BaseSettings):
     # rather than reusing provider_timeout_seconds and risking premature timeouts.
     gemini_timeout_seconds: float = 30.0
 
-    model_config = {"env_prefix": "TRUTHGUARD_"}
+    model_config = {
+        "env_prefix": "TRUTHGUARD_",
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+    }
 
 
 @lru_cache

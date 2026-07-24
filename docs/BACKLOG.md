@@ -44,21 +44,28 @@ why the share-back step matters as much as share-in.
 
 ## Known gaps (pick up anytime, not phase-gated)
 
-- [ ] 🟢 Configure `TRUTHGUARD_FACTCHECK_API_KEY` (Google Fact Check Tools)
+- [x] 🟢 Configure `TRUTHGUARD_FACTCHECK_API_KEY` (Google Fact Check Tools)
       on the dev backend and confirm real fact-checker hits surface for a
       known claim (e.g. something BOOM/Alt News/Factly has already covered).
-      Currently unset — evidence is Wikipedia-only. See
+      Done 2026-07-24 — verified live: AFP Fact Check, FACTLY, and BOOM all
+      surfaced for a known hoax claim, correctly graded FALSE. See
       [ADR 0003](decisions/0003-free-first-evidence-tiers.md).
 - [ ] 🔴 Statistical/count claims ("over 40 X between Y and Z") can't be
       verified — no source in the current stack aggregates counts (see the
       "Known gap" section in [ROADMAP.md](ROADMAP.md)). Needs a design
       discussion before starting: likely a general web-search provider
       (Brave Search free tier / SearXNG), not a Wikipedia fix.
-- [ ] 🟡 Deploy the backend to Cloud Run (pulls forward P5 prep) so testing
-      doesn't require running `backend/` on a laptop on the same LAN. No
-      Dockerfile or deploy script exists for the v2 backend yet — this is
-      greenfield (see `backend/README.md` for local-run instructions to
-      build from).
+- [x] 🟡 Deploy the backend to Cloud Run (pulls forward P5 prep) so testing
+      doesn't require running `backend/` on a laptop on the same LAN.
+      Done 2026-07-24 — live at
+      `https://truthguard-verify-648011521289.us-central1.run.app`
+      (`us-central1`, `--min-instances 0 --max-instances 1`, see
+      `backend/README.md`'s Deploy section for rationale and redeploy
+      command). `data/verification/build.gradle.kts`'s `release` build
+      type now points at it. Keys live in Secret Manager, not plaintext
+      env vars (see `backend/README.md`'s Secrets section). The
+      supporting GCP resources (APIs, IAM, secrets, the Cloud Run service
+      shape) are Terraform-managed under `infra/` — see `infra/README.md`.
 - [ ] 🔴 `adb reverse tcp:8000 tcp:8000` accepts connections on-device but
       never forwards them to the host — root cause not found; the
       LAN-IP workaround (`data/verification/build.gradle.kts`) works but
